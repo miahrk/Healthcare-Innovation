@@ -1,0 +1,12 @@
+{
+  "name": "primopredaja-nfc-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Neobavezni lokalni poslužitelj za AI sažetak (prototip, hackathon AI2MED)",
+  "type": "module",
+  "engines": { "node": ">=20.6" },
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "start:bez-ai": "node server.js"
+  }
+}
