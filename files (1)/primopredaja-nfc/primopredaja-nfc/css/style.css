@@ -323,15 +323,7 @@ td:first-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .gumbi-red { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem; }
 .forma .gumb { justify-self: start; margin-top: 0.5rem; }
 
-details.dodaj { margin-top: 0.6rem; }
-details.dodaj summary { cursor: pointer; font-weight: 700; color: var(--tiho); padding: 0.35rem 0; }
-details.dodaj[open] summary { color: var(--tinta); }
-details.dodaj .forma {
-  padding: 0.75rem; margin-top: 0.25rem;
-  background: var(--povrsina); border: 1px solid var(--crta); border-radius: 0.5rem;
-}
-
-/* ---------- alergije (kartica i profil) ---------- */
+/* ---------- alergije ---------- */
 .alergije-traka {
   margin: 0.6rem 0 0.4rem; padding: 0.45rem 0.7rem; border-radius: 0.4rem;
   background: var(--kriticno-poz); color: var(--kriticno); font-size: 0.95rem;
@@ -341,29 +333,6 @@ details.dodaj .forma {
 /* ---------- profil pacijenta ---------- */
 .profil-zaglavlje { padding: 0.5rem 0 1rem; border-bottom: 1px solid var(--crta); }
 .profil-zaglavlje h1:focus { outline: none; }
-.profil-sekcija { padding: 1.15rem 0; border-bottom: 1px solid var(--crta); }
-.profil-sekcija h3 { font-size: 1rem; margin: 1rem 0 0.35rem; }
-.podaci { margin: 0 0 0.75rem; display: grid; gap: 0.35rem; }
-.podaci > div { display: grid; grid-template-columns: 11rem 1fr; gap: 0.75rem; }
-.podaci dt { color: var(--tiho); }
-.podaci dd { margin: 0; }
-@media (max-width: 30rem) {
-  .podaci > div { grid-template-columns: 1fr; gap: 0; }
-}
-.povijest { list-style: none; margin: 0; padding: 0; }
-.povijest li { padding: 0.4rem 0; border-bottom: 1px dashed var(--crta); }
-.povijest li:last-child { border-bottom: 0; }
-.povijest.s-datumom li { display: grid; grid-template-columns: 11rem 1fr; gap: 0.75rem; }
-.povijest.s-datumom .dodano { grid-column: 2; }
-@media (max-width: 30rem) {
-  .povijest.s-datumom li { grid-template-columns: 1fr; gap: 0; }
-  .povijest.s-datumom .dodano { grid-column: 1; }
-}
-.povijest-datum { font-variant-numeric: tabular-nums; color: var(--tiho); }
-.povijest .oznaka { margin-left: 0.35rem; }
-.dodano { display: block; font-size: 0.85rem; }
-.dodano .poveznica { margin-left: 0.5rem; font-size: inherit; }
-
 /* ---------- upis podataka ---------- */
 .poveznica.opasno { color: var(--kriticno); }
 .unos-nav { margin-top: 0.75rem; }
@@ -394,4 +363,3 @@ details.dodaj .forma {
 .meta { font-size: 0.85rem; color: var(--tiho); margin: 0; }
 .zapis-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin-top: 0.5rem; }
 
-.tijek li { font-size: 0.95rem; }

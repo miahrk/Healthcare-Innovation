@@ -44,8 +44,8 @@
   // ---------- uloge i razine pristupa ----------
   // Prava su na jednom mjestu kako bi se lako provjerila i promijenila.
   const ROLE = {
-    lijecnik: { prava: ['terapija', 'vizita', 'nalazi', 'vitali', 'zadaci', 'plan', 'stanje', 'profil', 'preuzimanje'] },
-    sestra: { prava: ['primjena', 'vitali', 'sestrinska', 'zadaci', 'profil', 'preuzimanje'] }
+    lijecnik: { prava: ['terapija', 'vizita', 'nalazi', 'vitali', 'zadaci', 'plan', 'stanje', 'preuzimanje'] },
+    sestra: { prava: ['primjena', 'vitali', 'sestrinska', 'zadaci', 'preuzimanje'] }
   };
 
   const rola = (d) => (d && d.rola) || null;
@@ -98,22 +98,11 @@
   }
   const izUnosa = (v) => (v ? new Date(v).toISOString() : null);
 
-  const prazanProfil = () => ({
-    datumRodenja: '', mbo: '', krvnaGrupa: '', mjesto: '', prijem: null, kontakt: {},
-    alergije: [], bolesti: [], kucnaTerapija: [], hospitalizacije: [], pregledi: [], operacije: [],
-    navike: '', napomena: ''
-  });
-
-  // Izmjene napravljene u demou (dopune profila, upisi) čuvaju se
+  // Upisi napravljeni u demou čuvaju se
   // u localStorage-u i primjenjuju na podatke iz data.js pri pokretanju.
   function primijeniIzmjene() {
-    const dodaci = store.get('profilDodaci', {});
     const klinika = store.get('klinika', {});
     D.pacijenti.forEach((p) => {
-      p.profil = Object.assign(prazanProfil(), p.profil);
-      Object.entries(dodaci[p.tag] || {}).forEach(([sekcija, lista]) => {
-        p.profil[sekcija] = [...(p.profil[sekcija] || []), ...lista];
-      });
       if (klinika[p.tag]) Object.assign(p, klinika[p.tag]);
       normalizirajZapise(p);
     });
@@ -180,7 +169,6 @@
     if (h.includes('=')) {
       const par = new URLSearchParams(h);
       if (par.get('p')) return { ime: 'kartica', tag: par.get('p'), nfc: par.get('nfc') === '1' };
-      if (par.get('profil')) return { ime: 'profil', tag: par.get('profil') };
       if (par.get('unos')) return { ime: 'unos', tag: par.get('unos'), s: par.get('s') || 'vitali' };
     }
     return { ime: h || 'odjel' };
@@ -205,7 +193,6 @@
     zatvoriSloj();
     const r = ruta();
     const k = korisnik();
-    if (r.ime !== 'profil') zadnjiProfil = null;
     if (!(r.ime === 'unos' && uredjivanje && uredjivanje.tag === r.tag && uredjivanje.sekcija === r.s)) uredjivanje = null;
 
     if (!k) {
@@ -213,7 +200,6 @@
       return prikazi(ekranPrijava());
     }
     if (r.ime === 'kartica') return prikazi(ekranKartica(r, k), zadrziPolozaj);
-    if (r.ime === 'profil') return prikazi(ekranProfil(r, k), zadrziPolozaj);
     if (r.ime === 'unos') return prikazi(ekranUnos(r, k), zadrziPolozaj);
     if (r.ime === 'zapisnik') return prikazi(ekranZapisnik(k));
     if (r.ime === 'narukvice') return prikazi(ekranNarukvice(k));
@@ -478,7 +464,6 @@
             : 'Otvoreno ručno, bez skeniranja narukvice'}
         </p>
         ${alergijeTrakaHtml(p)}
-        <p class="mali-tekst"><a href="#profil=${encodeURIComponent(p.tag)}">Profil pacijenta i povijest bolesti</a></p>
         ${navigacijaUnosaHtml(p, null, k)}
       </header>
 
@@ -821,8 +806,7 @@
       ${zaglavlje(k, '')}
       <header class="profil-zaglavlje">
         <a href="#p=${encodeURIComponent(p.tag)}" class="natrag">Natrag na karticu za primopredaju</a>
-        <p class="tiho">${esc(D.odjeli[p.odjel] || p.odjel)}, soba ${esc(p.soba)}, krevet ${esc(p.krevet)} ·
-          <a href="#profil=${encodeURIComponent(p.tag)}">Profil</a></p>
+        <p class="tiho">${esc(D.odjeli[p.odjel] || p.odjel)}, soba ${esc(p.soba)}, krevet ${esc(p.krevet)}</p>
         <h1 ${ured ? '' : 'data-fokus'} tabindex="-1">${esc(p.ime)}, ${p.dob}: ${esc(c.naslov.toLowerCase())}</h1>
         ${alergijeTrakaHtml(p)}
         ${navigacijaUnosaHtml(p, sek)}
@@ -884,222 +868,6 @@
     if (uredjivanje && uredjivanje.id === id) uredjivanje = null;
     obavijest('Zapis je obrisan.');
     render(true);
-  }
-
-  // ---------- ekran: profil pacijenta (osobni podaci i medicinska povijest) ----------
-  const poDatumu = (polje) => (a, b) => String(b[polje] || '').localeCompare(String(a[polje] || ''));
-
-  // Sekcije profila koje se mogu dopunjavati. Izvorni zapisi se ne brišu,
-  // ukloniti se mogu samo stavke dodane u ovom demou.
-  const SEKCIJE = {
-    alergije: {
-      naslov: 'Alergije', prazno: 'Nema zabilježenih alergija.',
-      polja: [
-        { k: 'tvar', l: 'Lijek ili tvar', obavezno: true },
-        { k: 'reakcija', l: 'Reakcija' },
-        { k: 'tezina', l: 'Težina reakcije', opcije: ['blaga', 'umjerena', 'teška'] }
-      ],
-      prikaz: (x) => `<strong>${esc(x.tvar)}</strong>${x.reakcija ? `: ${esc(x.reakcija)}` : ''}
-        ${x.tezina ? `<span class="oznaka ${x.tezina === 'teška' ? 'kriticno' : 'upoz'}">${esc(x.tezina)}</span>` : ''}`
-    },
-    bolesti: {
-      naslov: 'Popratne bolesti i kronična stanja', prazno: 'Nema zabilježenih popratnih bolesti.',
-      polja: [{ k: 'naziv', l: 'Bolest ili stanje', obavezno: true }, { k: 'od', l: 'Od (godina)' }],
-      prikaz: (x) => `${esc(x.naziv)}${x.od ? ` <span class="tiho">(od ${esc(x.od)})</span>` : ''}`
-    },
-    kucnaTerapija: {
-      naslov: 'Kućna terapija', prazno: 'Nema zabilježene kućne terapije.',
-      polja: [{ k: 'lijek', l: 'Lijek', obavezno: true }, { k: 'doza', l: 'Doza i način primjene' }],
-      prikaz: (x) => `<strong>${esc(x.lijek)}</strong>${x.doza ? ` ${esc(x.doza)}` : ''}`
-    },
-    hospitalizacije: {
-      naslov: 'Prethodne hospitalizacije', prazno: 'Nema zabilježenih prethodnih hospitalizacija.',
-      polja: [
-        { k: 'od', l: 'Prijem', tip: 'date', obavezno: true },
-        { k: 'do', l: 'Otpust', tip: 'date' },
-        { k: 'mjesto', l: 'Odjel ili ustanova' },
-        { k: 'razlog', l: 'Razlog hospitalizacije', obavezno: true }
-      ],
-      sort: poDatumu('od'),
-      prikaz: (x) => `<span class="povijest-datum">${datum(x.od)}${x.do ? ` – ${datum(x.do)}` : ''}</span>
-        <span>${esc(x.razlog)}${x.mjesto ? ` <span class="tiho">(${esc(x.mjesto)})</span>` : ''}</span>`
-    },
-    pregledi: {
-      naslov: 'Prethodni pregledi', prazno: 'Nema zabilježenih pregleda.',
-      polja: [
-        { k: 'datum', l: 'Datum', tip: 'date', obavezno: true },
-        { k: 'vrsta', l: 'Pregled (npr. kardiolog, UZV srca)', obavezno: true },
-        { k: 'nalaz', l: 'Nalaz i preporuka' }
-      ],
-      sort: poDatumu('datum'),
-      prikaz: (x) => `<span class="povijest-datum">${datum(x.datum)}</span>
-        <span><strong>${esc(x.vrsta)}</strong>${x.nalaz ? `: ${esc(x.nalaz)}` : ''}</span>`
-    },
-    operacije: {
-      naslov: 'Operacije i zahvati', prazno: 'Nema zabilježenih operacija.',
-      polja: [{ k: 'godina', l: 'Godina' }, { k: 'naziv', l: 'Operacija ili zahvat', obavezno: true }],
-      sort: poDatumu('godina'),
-      prikaz: (x) => `${x.godina ? `<span class="povijest-datum">${esc(x.godina)}.</span>` : ''}<span>${esc(x.naziv)}</span>`
-    }
-  };
-
-  let zadnjiProfil = null;
-
-  function sekcijaProfilaHtml(p, kljuc, k) {
-    const s = SEKCIJE[kljuc];
-    const mozeUpis = smijeMijenjati(k, p) && ima(k, 'profil');
-    const stavke = [...p.profil[kljuc]];
-    if (s.sort) stavke.sort(s.sort);
-    const lista = stavke.length
-      ? `<ul class="povijest${s.sort ? ' s-datumom' : ''}">${stavke.map((x) => `
-          <li>
-            ${s.prikaz(x)}
-            ${x.dodao ? `<span class="dodano tiho">dodao/la ${esc(imeDjelatnika(x.dodao))}${x.dodano ? `, ${esc(datumVrijeme(x.dodano))}` : ''}
-              ${mozeUpis ? `<button type="button" class="poveznica" data-akcija="ukloni-profil" data-tag="${esc(p.tag)}"
-                data-sekcija="${kljuc}" data-id="${esc(x.id)}">Ukloni</button>` : ''}</span>` : ''}
-          </li>`).join('')}</ul>`
-      : `<p class="tiho">${s.prazno}</p>`;
-    if (!mozeUpis) {
-      return `
-        <section class="profil-sekcija" aria-labelledby="s-${kljuc}">
-          <h2 id="s-${kljuc}">${s.naslov}</h2>
-          ${lista}
-        </section>`;
-    }
-    const polja = s.polja.map((f) => {
-      const id = `f-${kljuc}-${f.k}`;
-      const unos = f.opcije
-        ? `<select id="${id}" name="${f.k}"><option value="">nije poznato</option>${f.opcije.map((o) => `<option>${esc(o)}</option>`).join('')}</select>`
-        : `<input id="${id}" name="${f.k}" type="${f.tip || 'text'}" ${f.obavezno ? 'required' : ''} autocomplete="off"
-            ${f.tip === 'date' ? `max="${kljucDatuma(new Date(D.sada))}"` : ''}>`;
-      return `<label for="${id}">${esc(f.l)}${f.obavezno ? '' : ' <span class="tiho">(neobavezno)</span>'}</label>${unos}`;
-    }).join('');
-    return `
-      <section class="profil-sekcija" aria-labelledby="s-${kljuc}">
-        <h2 id="s-${kljuc}">${s.naslov}</h2>
-        ${lista}
-        <details class="dodaj">
-          <summary>Dodaj: ${s.naslov.toLowerCase()}</summary>
-          <form class="forma forma-profil" data-tag="${esc(p.tag)}" data-sekcija="${kljuc}">
-            ${polja}
-            <button type="submit" class="gumb mali">Spremi</button>
-          </form>
-        </details>
-      </section>`;
-  }
-
-  function ekranProfil(r, k) {
-    const odbijeno = odbijenPristup(r, k);
-    if (odbijeno) return odbijeno;
-    const p = pacijent(r.tag);
-    const pr = p.profil;
-    if (zadnjiProfil !== p.tag) {
-      zabiljezi('otvoren profil pacijenta', p.tag);
-      zadnjiProfil = p.tag;
-    }
-
-    const red = (naziv, vrijednost) => vrijednost
-      ? `<div><dt>${naziv}</dt><dd>${vrijednost}</dd></div>` : '';
-    const kontakt = pr.kontakt && pr.kontakt.ime
-      ? `${esc(pr.kontakt.ime)}${pr.kontakt.odnos ? ` (${esc(pr.kontakt.odnos)})` : ''}${pr.kontakt.telefon ? `, ${esc(pr.kontakt.telefon)}` : ''}`
-      : '';
-
-    const vit = [...p.vitali].sort((a, b) => new Date(b.vrijeme) - new Date(a.vrijeme))[0];
-    const unos = (s, t) => `<a href="#unos=${encodeURIComponent(p.tag)}&s=${s}">${t}</a>`;
-
-    // Trenutna terapija: od kada, tko je propisao i zadnja primjena
-    const zadnjaPrimjena = (t) => p.primjene
-      .filter((m) => m.terapijaId === t.id)
-      .sort((a, b) => new Date(b.vrijeme) - new Date(a.vrijeme))[0];
-    const terapija = p.terapija.length
-      ? `<ul class="povijest">${[...p.terapija].sort((a, b) => new Date(b.od) - new Date(a.od)).map((x) => {
-          const m = zadnjaPrimjena(x);
-          return `<li>
-            <span><strong>${esc(x.lijek)}</strong> ${esc(x.doza)}${x.promjena ? ` <span class="tiho">(${esc(x.promjena)})</span>` : ''}</span>
-            <span class="dodano tiho">od ${esc(datumVrijeme(x.od))}${x.upisao ? `, propisao/la ${esc(imeDjelatnika(x.upisao))}` : ''}${x.promjenaU ? `; promjena ${esc(datumVrijeme(x.promjenaU))}` : ''}</span>
-            <span class="dodano tiho">${m ? `zadnja primjena ${esc(datumVrijeme(m.vrijeme))} (${esc(m.status)}, ${esc(imeDjelatnika(m.upisao))})` : 'primjena još nije zabilježena'}</span>
-          </li>`;
-        }).join('')}</ul>`
-      : '<p class="tiho">Nema propisane terapije.</p>';
-
-    // Tijek stanja: svaki upis s datumom i vremenom kada je upisan, najnoviji prvi
-    const tijek = [];
-    Object.values(UNOS).forEach((c) => zapisiSekcije(c, p).forEach((x) => tijek.push({
-      u: x.upisano, vrsta: c.jednina, tekst: c.tekst(x, p), tko: x.upisao, izmijenjeno: x.izmijenjeno, izmijenio: x.izmijenio
-    })));
-    Object.entries(SEKCIJE).forEach(([s, c]) => p.profil[s].filter((x) => x.dodano).forEach((x) => tijek.push({
-      u: x.dodano, vrsta: c.naslov.toLowerCase(), tekst: c.prikaz(x).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(), tko: x.dodao
-    })));
-    tijek.sort((a, b) => new Date(b.u) - new Date(a.u));
-    const tijekStavke = tijek.map((t) => `
-      <li>
-        <span class="povijest-datum">${esc(datumVrijeme(t.u))}</span>
-        <span><strong>${esc(t.vrsta.charAt(0).toUpperCase() + t.vrsta.slice(1))}:</strong> ${esc(t.tekst)}
-          <span class="dodano tiho">${t.tko ? `upisao/la ${esc(imeDjelatnika(t.tko))}` : 'iz bolničkog sustava'}${t.izmijenjeno ? `; izmijenio/la ${esc(imeDjelatnika(t.izmijenio))} ${esc(datumVrijeme(t.izmijenjeno))}` : ''}</span>
-        </span>
-      </li>`);
-    const zadnjeStanje = [...p.stanjePovijest].sort((a, b) => new Date(b.upisano) - new Date(a.upisano))[0];
-
-    return `
-      ${zaglavlje(k, '')}
-      <header class="profil-zaglavlje">
-        <a href="#p=${encodeURIComponent(p.tag)}" class="natrag">Natrag na karticu za primopredaju</a>
-        <p class="tiho">${esc(D.odjeli[p.odjel] || p.odjel)}, soba ${esc(p.soba)}, krevet ${esc(p.krevet)}</p>
-        <h1 data-fokus tabindex="-1">${esc(p.ime)}, ${p.dob}</h1>
-        <p>${p.spol === 'Ž' ? 'Žena' : 'Muškarac'}${pr.datumRodenja ? `, ${p.spol === 'Ž' ? 'rođena' : 'rođen'} ${datum(pr.datumRodenja)}` : ''}</p>
-        ${alergijeTrakaHtml(p)}
-        ${navigacijaUnosaHtml(p, null)}
-      </header>
-
-      <main class="profil">
-        <section class="profil-sekcija" aria-labelledby="s-osobno">
-          <h2 id="s-osobno">Osnovni podaci</h2>
-          <dl class="podaci">
-            ${red('MBO', esc(pr.mbo))}
-            ${red('Krvna grupa', esc(pr.krvnaGrupa))}
-            ${red('Prebivalište', esc(pr.mjesto))}
-            ${red('Kontakt osoba', kontakt)}
-            ${red('Navike', esc(pr.navike))}
-            ${red('Napomena', esc(pr.napomena))}
-            ${red('Narukvica', `<code>${esc(p.tag)}</code>`)}
-          </dl>
-          <div class="narukvica-gumbi">
-            ${N.podrzan ? `<button type="button" class="gumb mali" data-akcija="zapisi-tag" data-tag="${esc(p.tag)}">Zapiši na narukvicu</button>` : ''}
-            <button type="button" class="gumb sporedni mali" data-akcija="kopiraj" data-tag="${esc(p.tag)}">Kopiraj poveznicu za narukvicu</button>
-          </div>
-        </section>
-
-        <section class="profil-sekcija" aria-labelledby="s-sada">
-          <h2 id="s-sada">Trenutna hospitalizacija</h2>
-          <dl class="podaci">
-            ${red('Prijem', pr.prijem ? datum(pr.prijem) : '')}
-            ${red('Dijagnoza', esc(p.dg))}
-            ${red('Upisano stanje', `${esc(STANJA[p.stanje] || p.stanje)}${zadnjeStanje ? ` <span class="tiho">(${esc(datumVrijeme(zadnjeStanje.upisano))}${zadnjeStanje.upisao ? `, ${esc(imeDjelatnika(zadnjeStanje.upisao))}` : ''})</span>` : ''} · ${unos('stanje', 'promjene stanja')}`)}
-            ${red('Zadnji vitalni znakovi', vit ? `${esc(datumVrijeme(vit.vrijeme))}: FP ${vit.fp}/min, RR ${vit.sys}/${vit.dia} mmHg, SpO2 ${vit.spo2} %, T ${brojHr(vit.temp)} °C · ${unos('vitali', 'svi vitalni znakovi')}` : unos('vitali', 'upiši vitalne znakove'))}
-          </dl>
-        </section>
-
-        <section class="profil-sekcija" aria-labelledby="s-terapija">
-          <h2 id="s-terapija">Trenutna terapija</h2>
-          ${terapija}
-          <p class="mali-tekst">${unos('terapija', 'Terapija')} · ${unos('primjene', 'Primjena lijekova')}</p>
-        </section>
-
-        ${sekcijaProfilaHtml(p, 'bolesti', k)}
-        ${sekcijaProfilaHtml(p, 'alergije', k)}
-
-        <section class="profil-sekcija" aria-labelledby="s-tijek">
-          <h2 id="s-tijek">Tijek stanja i upisi</h2>
-          <p class="tiho mali-tekst">Svaki upis o pacijentu s datumom i vremenom kada je upisan, najnoviji prvi.</p>
-          ${tijek.length ? `
-            <ul class="povijest s-datumom tijek">${tijekStavke.slice(0, 15).join('')}</ul>
-            ${tijek.length > 15 ? `<details class="dodaj"><summary>Prikaži starije upise (${tijek.length - 15})</summary>
-              <ul class="povijest s-datumom tijek">${tijekStavke.slice(15).join('')}</ul></details>` : ''}`
-          : '<p class="tiho">Nema upisa.</p>'}
-        </section>
-
-        ${['kucnaTerapija', 'hospitalizacije', 'pregledi', 'operacije'].map((s) => sekcijaProfilaHtml(p, s, k)).join('')}
-      </main>`;
   }
 
   // ---------- ekran: poruka (nepoznata narukvica, zabranjen pristup) ----------
@@ -1368,19 +1136,9 @@
         zabiljezi('nova primopredaja');
         render();
       }
-    } else if (a === 'ukloni-profil') {
-      const p = pacijent(tag);
-      if (!p || !smijeMijenjati(k, p) || !ima(k, 'profil')) return;
-      const sek = b.dataset.sekcija;
-      p.profil[sek] = p.profil[sek].filter((x) => x.id !== b.dataset.id);
-      const dodaci = store.get('profilDodaci', {});
-      if (dodaci[tag] && dodaci[tag][sek]) dodaci[tag][sek] = dodaci[tag][sek].filter((x) => x.id !== b.dataset.id);
-      store.set('profilDodaci', dodaci);
-      zabiljezi('izmjena profila', tag, `uklonjena stavka: ${SEKCIJE[sek].naslov.toLowerCase()}`);
-      render(true);
     } else if (a === 'demo-podaci') {
-      if (confirm('Vratiti početne demo podatke? Brišu se preuzimanja, bilješke, zapisnik, dopune profila i svi upisi, a vi se odjavljujete.')) {
-        ['sesija', 'preuzimanja', 'biljeske', 'zapisnik', 'nakonPrijave', 'profilDodaci', 'klinika', 'idBrojaci']
+      if (confirm('Vratiti početne demo podatke? Brišu se preuzimanja, bilješke, zapisnik i svi upisi, a vi se odjavljujete.')) {
+        ['sesija', 'preuzimanja', 'biljeske', 'zapisnik', 'nakonPrijave', 'klinika', 'idBrojaci']
           .forEach((x) => store.remove(x));
         location.hash = '';
         location.reload();
@@ -1431,22 +1189,6 @@
     } else if (f.classList.contains('forma-zapis')) {
       const k = korisnik();
       if (k) spremiZapis(f, k);
-    } else if (f.classList.contains('forma-profil')) {
-      const k = korisnik();
-      const tag = f.dataset.tag;
-      const sek = f.dataset.sekcija;
-      const p = pacijent(tag);
-      if (!p || !smijeMijenjati(k, p) || !ima(k, 'profil') || !SEKCIJE[sek]) return;
-      const stavka = { id: 'd' + Date.now().toString(36), dodao: k.id, dodano: sadaZaZapis() };
-      SEKCIJE[sek].polja.forEach((x) => { stavka[x.k] = (f.elements[x.k].value || '').trim(); });
-      p.profil[sek].push(stavka);
-      const dodaci = store.get('profilDodaci', {});
-      dodaci[tag] = dodaci[tag] || {};
-      (dodaci[tag][sek] = dodaci[tag][sek] || []).push(stavka);
-      store.set('profilDodaci', dodaci);
-      zabiljezi('izmjena profila', tag, `dodano: ${SEKCIJE[sek].naslov.toLowerCase()}`);
-      obavijest(sek === 'alergije' ? 'Alergija je zabilježena i provjerava se u terapiji.' : 'Spremljeno u profil.');
-      render(true);
     } else if (f.id === 'forma-rucno') {
       const tag = f.querySelector('#rucni-id').value.trim();
       if (!tag) return;
