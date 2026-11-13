@@ -8,7 +8,14 @@
   const vr = P.vrijeme;
 
   // ---------- pohrana (localStorage, samo za demo) ----------
-  const PREFIKS = 'primopredaja-demo:';
+  // Verzija u ključu: podaci starije, šire verzije aplikacije (raspored, profili, upisi)
+  // spremani su pod 'primopredaja-demo:' i ovdje se zanemaruju i brišu.
+  const PREFIKS = 'primopredaja-demo-v2:';
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('primopredaja-demo:'))
+      .forEach((k) => localStorage.removeItem(k));
+  } catch (e) { /* pohrana nedostupna */ }
   const store = {
     get(k, zadano) {
       try { const v = localStorage.getItem(PREFIKS + k); return v === null ? zadano : JSON.parse(v); }
