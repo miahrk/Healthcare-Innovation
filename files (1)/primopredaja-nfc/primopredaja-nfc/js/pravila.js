@@ -185,5 +185,56 @@
     return sTimom;
   }
 
-  window.PRAVILA = { upozorenja, procjena, sazetak, akcije, zapisi, RAZINE, vrijeme, vrijemeDatum };
+  // Brzi pregled za primopredaju: zadnji vitalni znakovi, zadnji nalazi, terapija,
+  // zadnje bilješke i otvoreni zadaci. Pragovi za "odstupa" isti su kao u pravilima za upozorenja.
+  function pregled(p, sada, dodatneBiljeske = [], brojNalaza = 3, brojBiljeski = 2) {
+    const now = ms(sada);
+    const v = [...p.vitali].sort((a, b) => ms(a.vrijeme) - ms(b.vrijeme));
+    const z = v[v.length - 1];
+    const prvi = v.length > 1 ? v[0] : null;
+    const cilj = p.ciljSpO2 || [94, 100];
+    const stavka = (oznaka, vrijednost, ranije, odstupa) => ({ oznaka, vrijednost, ranije, odstupa });
+
+    const vitali = z ? {
+      id: z.id,
+      vrijeme: z.vrijeme,
+      ranijeVrijeme: prvi ? prvi.vrijeme : null,
+      stavke: [
+        stavka('FP', `${z.fp}/min`, prvi && `${prvi.fp}/min`, z.fp > 110 || z.fp < 50 || (prvi && prvi.fp - z.fp >= 25)),
+        stavka('RR', `${z.sys}/${z.dia} mmHg`, prvi && `${prvi.sys}/${prvi.dia}`, z.sys < 100),
+        stavka('SpO2', `${z.spo2} %`, prvi && `${prvi.spo2} %`, z.spo2 < cilj[0]),
+        stavka('T', `${broj(z.temp)} °C`, prvi && `${broj(prvi.temp)} °C`, z.temp >= 38.5),
+        stavka('FD', `${z.fd}/min`, prvi && `${prvi.fd}/min`, false)
+      ]
+    } : null;
+
+    const sviNalazi = [...p.nalazi]
+      .sort((a, b) => ms(b.stiglo || b.naruceno) - ms(a.stiglo || a.naruceno))
+      .map((n) => ({
+        id: n.id,
+        naziv: n.naziv,
+        tekst: n.stiglo ? opisNalaza(n) : (n.opis || 'na čekanju'),
+        vrijeme: n.stiglo || n.naruceno,
+        status: !n.stiglo ? 'ceka' : n.pregledao ? 'pregledan' : 'nepregledan',
+        izvanRef: izvanRef(n)
+      }));
+
+    const sveBiljeske = [...p.biljeske, ...dodatneBiljeske]
+      .sort((a, b) => ms(b.vrijeme) - ms(a.vrijeme));
+
+    return {
+      vitali,
+      nalazi: sviNalazi.slice(0, brojNalaza),
+      nalaziJos: Math.max(0, sviNalazi.length - brojNalaza),
+      terapija: p.terapija.map((x) => ({ id: x.id, lijek: x.lijek, doza: x.doza, od: x.od, promjena: x.promjena || null })),
+      biljeske: sveBiljeske.slice(0, brojBiljeski)
+        .map((b) => ({ id: b.id, vrijeme: b.vrijeme, autor: b.autor, tekst: b.tekst, uzKrevet: !!b.uzKrevet })),
+      biljeskeJos: Math.max(0, sveBiljeske.length - brojBiljeski),
+      zadaci: p.zadaci.filter((x) => !x.gotovo)
+        .sort((a, b) => ms(a.rok) - ms(b.rok))
+        .map((x) => ({ id: x.id, opis: x.opis, rok: x.rok, kasni: ms(x.rok) < now }))
+    };
+  }
+
+  window.PRAVILA = { upozorenja, procjena, sazetak, akcije, zapisi, pregled, RAZINE, vrijeme, vrijemeDatum };
 })();

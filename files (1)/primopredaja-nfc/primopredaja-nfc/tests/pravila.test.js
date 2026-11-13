@@ -144,3 +144,58 @@ test('demo podaci su dosljedni', () => {
     p.biljeske.forEach((b) => assert.ok(djelatnici.has(b.autor)));
   }
 });
+
+test('pregled: Ivo Perić, zadnji vitalni znakovi s usporedbom i odstupanjima', () => {
+  const { D, P, pacijent } = aplikacija();
+  const pr = P.pregled(pacijent('k7m2q9xa'), D.sada);
+  assert.equal(pr.vitali.id, 'v3');
+  const fp = pr.vitali.stavke.find((s) => s.oznaka === 'FP');
+  assert.equal(fp.vrijednost, '56/min');
+  assert.equal(fp.ranije, '82/min');
+  assert.equal(fp.odstupa, true); // nagli pad od 26/min
+  assert.equal(pr.vitali.stavke.find((s) => s.oznaka === 'SpO2').odstupa, false);
+  assert.equal(pr.vitali.stavke.find((s) => s.oznaka === 'FD').odstupa, false);
+});
+
+test('pregled: nalazi od najnovijeg, sa statusom pregleda', () => {
+  const { D, P, pacijent } = aplikacija();
+  const pr = P.pregled(pacijent('k7m2q9xa'), D.sada);
+  assert.deepEqual([...pr.nalazi].map((n) => [n.id, n.status, n.izvanRef]), [['n2', 'nepregledan', true], ['n1', 'pregledan', true]]);
+  assert.equal(pr.nalaziJos, 0);
+  const marija = P.pregled(pacijent('p3c8w1rn'), D.sada);
+  assert.equal(marija.nalazi[0].id, 'n2');
+  assert.equal(marija.nalazi[0].status, 'ceka');
+});
+
+test('pregled: ograničen broj nalaza i bilješki, s brojem preostalih', () => {
+  const { D, P, pacijent } = aplikacija();
+  const pr = P.pregled(pacijent('k7m2q9xa'), D.sada, [], 1, 1);
+  assert.equal(pr.nalazi.length, 1);
+  assert.equal(pr.nalaziJos, 1);
+  assert.equal(pr.biljeske.length, 1);
+  assert.equal(pr.biljeskeJos, 1);
+});
+
+test('pregled: bilješka uz krevet je najnovija bilješka', () => {
+  const { D, P, pacijent } = aplikacija();
+  const b = { id: 'bk1', vrijeme: D.sada, autor: 'S02', tekst: 'Pospan.', uzKrevet: true };
+  const pr = P.pregled(pacijent('k7m2q9xa'), D.sada, [b]);
+  assert.deepEqual([...pr.biljeske].map((x) => [x.id, x.uzKrevet]), [['bk1', true], ['b2', false]]);
+});
+
+test('pregled: terapija s promjenama i svi otvoreni zadaci po roku', () => {
+  const { D, P, pacijent } = aplikacija();
+  const pr = P.pregled(pacijent('n8s5e4dy'), D.sada);
+  assert.deepEqual([...pr.zadaci].map((z) => [z.id, z.kasni]), [['z1', true], ['z2', false]]);
+  const ivo = P.pregled(pacijent('k7m2q9xa'), D.sada);
+  assert.equal(ivo.terapija.length, 3);
+  assert.equal(ivo.terapija.find((t) => t.id === 't3').promjena, 'uveden');
+  assert.equal(ivo.terapija.find((t) => t.id === 't1').promjena, null);
+});
+
+test('pregled: pacijent bez zapisa ne puca', () => {
+  const { D, P, pacijent } = aplikacija();
+  const pr = P.pregled(pacijent('t1g6y8hp'), D.sada);
+  assert.equal(pr.vitali, null);
+  assert.equal(pr.nalazi.length + pr.terapija.length + pr.biljeske.length + pr.zadaci.length, 0);
+});

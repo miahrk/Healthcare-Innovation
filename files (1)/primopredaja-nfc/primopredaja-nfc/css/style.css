@@ -201,6 +201,35 @@ button, input, textarea { font: inherit; color: inherit; }
 .identitet.rucno { color: var(--upoz); }
 .identitet.sim { color: var(--fokus); }
 
+/* brzi pregled za primopredaju */
+.pregled { padding: 1.15rem 0 0.5rem; border-bottom: 1px solid var(--crta); }
+.pregled-mreza { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+@media (min-width: 40rem) {
+  .pregled-mreza { grid-template-columns: 1fr 1fr; }
+  .pregled-blok.siroko { grid-column: 1 / -1; }
+}
+.pregled-blok {
+  min-width: 0; padding: 0.75rem 0.85rem;
+  background: var(--povrsina); border: 1px solid var(--crta); border-radius: 0.5rem;
+}
+.pregled-blok h3 {
+  font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--tiho); margin: 0 0 0.4rem;
+}
+.pregled-lista { list-style: none; margin: 0; padding: 0; }
+.pregled-lista li { padding: 0.3rem 0; border-top: 1px solid var(--crta); font-size: 0.95rem; }
+.pregled-lista li:first-child { border-top: 0; padding-top: 0; }
+.pregled-lista .oznaka { font-size: 0.78rem; white-space: normal; }
+.kriticno-tekst, .kriticno-tekst strong { color: var(--kriticno); }
+
+.vitali { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: 0.4rem; margin: 0.25rem 0 0; }
+.vitali > div { padding: 0.35rem 0.5rem; border-radius: 0.4rem; border: 1px solid var(--crta); }
+.vitali dt { font-size: 0.8rem; color: var(--tiho); font-weight: 700; }
+.vitali dd { margin: 0; font-variant-numeric: tabular-nums; }
+.vitali dd .tiho { font-size: 0.85rem; }
+.vitali > div.odstupa { border-color: var(--kriticno); background: var(--kriticno-poz); }
+.vitali > div.odstupa dt, .vitali > div.odstupa strong { color: var(--kriticno); }
+
 .ipass { list-style: none; margin: 0; padding: 0; }
 .ipass > li {
   display: grid; grid-template-columns: 2.25rem 1fr; gap: 0.75rem;

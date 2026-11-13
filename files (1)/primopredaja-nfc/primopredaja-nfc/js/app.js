@@ -274,6 +274,71 @@
       : '<p class="alergije-traka nema">Nema zabilježenih alergija</p>';
   }
 
+  // Brzi pregled za primopredaju: sve ključno na jednom mjestu, uz poveznice na izvorne zapise
+  function brziPregledHtml(p, dodatne, izvorGumb) {
+    const pr = P.pregled(p, D.sada, dodatne);
+    const prazno = (t) => `<p class="tiho mali-tekst">${t}</p>`;
+    const jos = (n) => n ? `<p class="tiho mali-tekst">i još ${n} u izvornim zapisima</p>` : '';
+    const STATUS = {
+      ceka: '<span class="oznaka tiho-oznaka">na čekanju</span>',
+      nepregledan: '<span class="oznaka kriticno">nije pregledan</span>',
+      pregledan: ''
+    };
+
+    const vitaliHtml = pr.vitali
+      ? `<p class="tiho mali-tekst">Mjereno u ${kada(pr.vitali.vrijeme)}${pr.vitali.ranijeVrijeme ? `, u zagradi ${kada(pr.vitali.ranijeVrijeme)}` : ''} ${izvorGumb(pr.vitali.id)}</p>
+         <dl class="vitali">${pr.vitali.stavke.map((s) => `
+           <div class="${s.odstupa ? 'odstupa' : ''}">
+             <dt>${s.oznaka}</dt>
+             <dd><strong>${esc(s.vrijednost)}</strong>${s.ranije ? ` <span class="tiho">(${esc(s.ranije)})</span>` : ''}${s.odstupa ? '<span class="nevidljivo"> odstupa</span>' : ''}</dd>
+           </div>`).join('')}</dl>`
+      : prazno('Nema mjerenja.');
+
+    const nalaziHtml = pr.nalazi.length
+      ? `<ul class="pregled-lista">${pr.nalazi.map((n) => `
+          <li${n.status === 'nepregledan' && n.izvanRef ? ' class="kriticno-tekst"' : ''}>
+            <strong>${esc(n.naziv)}</strong>: ${esc(n.tekst)} ${STATUS[n.status]}
+            <span class="tiho mali-tekst">${kada(n.vrijeme)}</span> ${izvorGumb(n.id)}
+          </li>`).join('')}</ul>${jos(pr.nalaziJos)}`
+      : prazno('Nema nalaza.');
+
+    const terapijaHtml = pr.terapija.length
+      ? `<ul class="pregled-lista">${pr.terapija.map((t) => `
+          <li><strong>${esc(t.lijek)}</strong> ${esc(t.doza)}
+            ${t.promjena ? `<span class="oznaka upoz">${esc(t.promjena)} u ${kada(t.od)}</span>` : ''} ${izvorGumb(t.id)}
+          </li>`).join('')}</ul>`
+      : prazno('Nema terapije.');
+
+    const biljeskeHtml = pr.biljeske.length
+      ? `<ul class="pregled-lista">${pr.biljeske.map((b) => `
+          <li><span class="tiho mali-tekst">${kada(b.vrijeme)}, ${esc(imeDjelatnika(b.autor))}${b.uzKrevet ? ', uz krevet' : ''}</span><br>
+            ${esc(b.tekst)} ${izvorGumb(b.id)}
+          </li>`).join('')}</ul>${jos(pr.biljeskeJos)}`
+      : prazno('Nema bilješki.');
+
+    const zadaciHtml = pr.zadaci.length
+      ? `<ul class="pregled-lista">${pr.zadaci.map((z) => `
+          <li${z.kasni ? ' class="kriticno-tekst"' : ''}>
+            <strong>${kada(z.rok)}</strong> ${esc(z.opis)}${z.kasni ? ' <strong>(kasni)</strong>' : ''} ${izvorGumb(z.id)}
+          </li>`).join('')}</ul>`
+      : prazno('Nema otvorenih zadataka.');
+
+    const blok = (naslov, html, siroko) =>
+      `<section class="pregled-blok${siroko ? ' siroko' : ''}"><h3>${naslov}</h3>${html}</section>`;
+
+    return `
+      <section class="pregled" aria-labelledby="pregled-naslov">
+        <h2 id="pregled-naslov">Pregled za primopredaju</h2>
+        <div class="pregled-mreza">
+          ${blok('Vitalni znakovi', vitaliHtml, true)}
+          ${blok('Zadnji nalazi', nalaziHtml)}
+          ${blok('Terapija', terapijaHtml)}
+          ${blok('Zadnje bilješke', biljeskeHtml)}
+          ${blok('Otvoreni zadaci', zadaciHtml)}
+        </div>
+      </section>`;
+  }
+
   function ekranKartica(r, k) {
     const odbijeno = odbijenPristup(r, k);
     if (odbijeno) return odbijeno;
@@ -363,6 +428,8 @@
          ${sveSpremno ? '' : `<p class="tiho mali-tekst">Potvrdite sva upozorenja (${brojPotvrdenih} od ${zaPotvrdu.length}).</p>`}
          ${nacin.nacin === 'rucno' ? '<p class="tiho mali-tekst">Kartica je otvorena ručno. Za potvrdu identiteta skenirajte narukvicu uz krevet.</p>' : ''}`;
 
+    const pregledHtml = brziPregledHtml(p, dodatne, izvorGumb);
+
     // Izvorni zapisi
     const zapisi = P.zapisi(p, dodatne, imeDjelatnika);
     const zapisiHtml = zapisi.map((z) => `
@@ -388,6 +455,7 @@
       </header>
 
       <main>
+        ${pregledHtml}
         <ol class="ipass">
           <li>
             <span class="slovo" aria-hidden="true">I</span>
