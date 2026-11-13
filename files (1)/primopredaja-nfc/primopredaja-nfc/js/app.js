@@ -225,7 +225,7 @@
           <div class="traka" role="progressbar" aria-valuemin="0" aria-valuemax="${lista.length}" aria-valuenow="${preuzeto}">
             <span style="width:${posto}%"></span>
           </div>
-          <p class="tiho mali-tekst">Kraj smjene u ${vr(D.smjena.do)}. Poredano po hitnosti.</p>
+          <p class="tiho mali-tekst">Kraj smjene u ${vr(D.krajSmjene)}. Poredano po hitnosti.</p>
         </section>
 
         ${lista.length ? `<ol class="pacijenti">${redovi}</ol>` : '<p class="tiho">Na odjelu nema pacijenata.</p>'}
@@ -259,10 +259,8 @@
   }
 
   function alergijeTrakaHtml(p) {
-    const al = p.profil.alergije;
-    return al.length
-      ? `<p class="alergije-traka"><strong>Alergije:</strong> ${al.map((a) =>
-          esc(a.tvar) + (a.reakcija ? ` (${esc(a.reakcija)})` : '')).join(', ')}</p>`
+    return p.alergije.length
+      ? `<p class="alergije-traka"><strong>Alergije:</strong> ${p.alergije.map(esc).join(', ')}</p>`
       : '<p class="alergije-traka nema">Nema zabilježenih alergija</p>';
   }
 
