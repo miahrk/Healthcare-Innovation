@@ -230,6 +230,46 @@ button, input, textarea { font: inherit; color: inherit; }
 .vitali > div.odstupa { border-color: var(--kriticno); background: var(--kriticno-poz); }
 .vitali > div.odstupa dt, .vitali > div.odstupa strong { color: var(--kriticno); }
 
+/* glasovni unos */
+.glas { padding: 1.15rem 0; border-bottom: 1px solid var(--crta); display: grid; gap: 0.5rem; }
+.glas h2 { margin: 0; }
+.glas > label { font-weight: 700; }
+.glas-kontrole { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.glas-gumb { min-width: 9.5rem; }
+.glas-gumb::before {
+  content: ''; width: 0.7rem; height: 0.7rem; border-radius: 50%;
+  background: currentColor; margin-right: 0.55rem; flex: none;
+}
+.glas-gumb.slusa { background: var(--kriticno); border-color: var(--kriticno); color: #fff; }
+.glas-gumb.slusa::before { animation: snima 1s ease-in-out infinite alternate; }
+@keyframes snima { to { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .glas-gumb.slusa::before { animation: none; } }
+.glas-akcije { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.5rem 1rem; }
+.glas-primjeri summary { cursor: pointer; font-size: 0.9rem; padding: 0.55rem 0; }
+.glas-primjeri .poveznica { display: block; text-align: left; margin: 0.25rem 0; }
+
+.nacrt { margin-top: 0.5rem; padding: 0.85rem; border-radius: 0.5rem; background: var(--povrsina); border: 1px solid var(--crta); }
+.nacrt h3, .potvrdeno-glas h3 { font-size: 1rem; margin: 0 0 0.35rem; }
+.nacrt-napomene { margin: 0.25rem 0 0.75rem; padding-left: 1.2rem; color: var(--upoz); font-size: 0.92rem; }
+.nacrt-polja { list-style: none; margin: 0.5rem 0; padding: 0; display: grid; gap: 0.75rem; }
+.nacrt-polje {
+  padding: 0.75rem; border: 2px dashed var(--upoz); border-radius: 0.5rem; background: var(--upoz-poz);
+}
+.nacrt-zaglavlje { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.oznaka.nepotvrdeno { background: var(--upoz); color: var(--povrsina); text-transform: uppercase; letter-spacing: 0.03em; }
+.nacrt-polje p { margin: 0.2rem 0 0.4rem; }
+.nacrt-mreza { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.5rem; }
+.nacrt-mreza .siroko { grid-column: 1 / -1; }
+.nacrt-polje label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 0.15rem; }
+.nacrt-polje input, .nacrt-polje select, .nacrt-polje textarea {
+  width: 100%; min-height: 2.5rem; padding: 0.35rem 0.5rem;
+  border: 2px solid var(--crta); border-radius: 0.4rem; background: var(--povrsina);
+}
+.nacrt-gumbi { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.nacrt-diktat summary { cursor: pointer; font-size: 0.9rem; padding: 0.35rem 0; }
+.potvrdeno-glas { margin-top: 0.5rem; padding: 0.75rem 0.85rem; border-radius: 0.5rem; background: var(--ok-poz); }
+.potvrdeno-glas h3 { color: var(--ok); }
+
 .ipass { list-style: none; margin: 0; padding: 0; }
 .ipass > li {
   display: grid; grid-template-columns: 2.25rem 1fr; gap: 0.75rem;

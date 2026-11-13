@@ -125,6 +125,8 @@
     zatvoriSloj();
     const r = ruta();
     const k = korisnik();
+    // Diktat staje kad se napusti kartica pacijenta za kojeg se diktira (tekst ipak ide u nacrt)
+    if (G.slusa() && (!k || r.ime !== 'kartica' || r.tag !== slusaTag)) G.zaustavi();
 
     if (!k) {
       if (r.ime !== 'prijava' && r.ime !== 'odjel') store.set('nakonPrijave', location.hash);
@@ -359,6 +361,319 @@
       </details>`;
   }
 
+  // ---------- glasovni unos ----------
+  // Govor (ili upisani tekst) -> pravila u razvrstavanje.js -> NACRT polja označenih "nepotvrđeno".
+  // Djelatnik svako polje pregleda, po potrebi ispravi i potvrdi ili odbaci.
+  // U "unosi" ulazi samo ono što je čovjek potvrdio.
+  const G = window.GOVOR;
+  const RZ = window.RAZVRSTAVANJE;
+  const VRSTE_POLJA = { vitali: 'Vitalni znakovi', nalaz: 'Nalaz', terapija: 'Terapija', zadatak: 'Zadatak', biljeska: 'Opća bilješka' };
+  const PROMJENE = ['uveden', 'ukinut', 'doza povećana', 'doza smanjena', 'jednokratno dan'];
+  const VITALI_POLJA = [
+    ['fp', 'FP (/min)'], ['sys', 'RR sistolički'], ['dia', 'RR dijastolički'],
+    ['spo2', 'SpO2 (%)'], ['temp', 'T (°C)'], ['fd', 'FD (/min)']
+  ];
+  const PRIMJERI_DIKTATA = [
+    'Tlak 100 na 60, puls 52, saturacija 94 posto. Kalij 6,1 javljen dežurnom. Ukinut spironolakton. Zadatak: kontrola kalija u 22 sata. Bolesnik pospan, budi se na poziv.',
+    'saturacija 91 temperatura 38 zarez 9 dan paracetamol 1 g p.o. u 18 sati bolesnica se žali na bol u prsima kod kašlja treba javiti obitelji',
+    'puls 88 tlak 300 na 80 frekvencija 20 bolesnik bez tegoba'
+  ];
+  const diktat = { tag: null, tekst: '' };   // tekst u polju za diktat, da se ne izgubi pri ponovnom crtanju
+  let slusaTag = null;                       // pacijent za kojeg se trenutno diktira
+
+  const nacrti = () => store.get('nacrti', {});
+  const nacrtZa = (tag) => nacrti()[tag] || null;
+  function spremiNacrt(tag, n) {
+    const sve = nacrti();
+    if (n && n.polja.length) sve[tag] = n; else delete sve[tag];
+    store.set('nacrti', sve);
+  }
+  const potvrdeniUnosi = (tag) => store.get('unosi', {})[tag] || [];
+
+  const brojUTekst = (x) => (x === null || x === undefined ? '' : String(x).replace('.', ','));
+  const uBroj = (s) => (String(s ?? '').trim() === '' ? null : Number(String(s).trim().replace(',', '.')));
+
+  // ISO -> vrijednost za <input type="datetime-local"> (lokalno vrijeme)
+  function uLokalno(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const dv = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${dv(d.getMonth() + 1)}-${dv(d.getDate())}T${dv(d.getHours())}:${dv(d.getMinutes())}`;
+  }
+
+  function nacrtPoljeUnosi(pl) {
+    const d = pl.podaci;
+    const ime = (kljuc) => `np-${pl.id}-${kljuc}`;
+    const unos = (kljuc, oznaka, vrijednost, dodatno = '') => `
+      <label for="${ime(kljuc)}">${oznaka}</label>
+      <input id="${ime(kljuc)}" data-polje="${esc(pl.id)}" data-kljuc="${kljuc}" value="${esc(vrijednost)}" autocomplete="off" ${dodatno}>`;
+
+    if (pl.vrsta === 'vitali') {
+      return `<div class="nacrt-mreza">${VITALI_POLJA.map(([kljuc, oznaka]) =>
+        `<div>${unos(kljuc, oznaka, brojUTekst(d[kljuc]), 'inputmode="decimal"')}</div>`).join('')}</div>`;
+    }
+    if (pl.vrsta === 'nalaz') {
+      return `<div class="nacrt-mreza">
+        <div>${unos('naziv', 'Nalaz', d.naziv)}</div>
+        <div>${unos('vrijednost', 'Vrijednost', brojUTekst(d.vrijednost), 'inputmode="decimal"')}</div>
+        <div>${unos('jedinica', 'Jedinica', d.jedinica)}</div>
+      </div>${d.stiglo ? `<p class="tiho mali-tekst">Vrijeme iz diktata: ${kada(d.stiglo)}</p>` : ''}`;
+    }
+    if (pl.vrsta === 'terapija') {
+      return `<div class="nacrt-mreza">
+        <div>${unos('lijek', 'Lijek', d.lijek)}</div>
+        <div>${unos('doza', 'Doza', d.doza)}</div>
+        <div>
+          <label for="${ime('promjena')}">Promjena</label>
+          <select id="${ime('promjena')}" data-polje="${esc(pl.id)}" data-kljuc="promjena">
+            ${PROMJENE.map((x) => `<option${x === d.promjena ? ' selected' : ''}>${x}</option>`).join('')}
+          </select>
+        </div>
+      </div>${d.od ? `<p class="tiho mali-tekst">Vrijeme iz diktata: ${kada(d.od)}</p>` : ''}`;
+    }
+    if (pl.vrsta === 'zadatak') {
+      return `<div class="nacrt-mreza">
+        <div class="siroko">${unos('opis', 'Zadatak', d.opis)}</div>
+        <div>${unos('rok', 'Rok' + (d.rok ? '' : ' (nije izgovoren, upišite)'), uLokalno(d.rok), 'type="datetime-local"')}</div>
+      </div>`;
+    }
+    return `
+      <label for="${ime('tekst')}" class="nevidljivo">Tekst bilješke</label>
+      <textarea id="${ime('tekst')}" data-polje="${esc(pl.id)}" data-kljuc="tekst" rows="2">${esc(d.tekst)}</textarea>`;
+  }
+
+  // Provjera ispravljenih vrijednosti prije potvrde: vraća { podaci } ili { greska }
+  function provjeriPolje(pl) {
+    const d = pl.podaci;
+    const tekst = (x) => String(x ?? '').trim();
+    if (pl.vrsta === 'vitali') {
+      const out = {};
+      for (const [kljuc, oznaka] of VITALI_POLJA) {
+        const x = uBroj(d[kljuc]);
+        if (x === null) continue;
+        if (!RZ.uRasponu(kljuc, x)) return { greska: `${oznaka}: vrijednost nije uvjerljiva.` };
+        out[kljuc] = x;
+      }
+      if (('sys' in out) !== ('dia' in out)) return { greska: 'Upišite i sistolički i dijastolički tlak, ili nijedan.' };
+      if ('sys' in out && out.sys <= out.dia) return { greska: 'Sistolički tlak mora biti viši od dijastoličkog.' };
+      if (!Object.keys(out).length) return { greska: 'Upišite barem jedan vitalni znak ili odbacite polje.' };
+      return { podaci: out };
+    }
+    if (pl.vrsta === 'nalaz') {
+      const vrijednost = uBroj(d.vrijednost);
+      if (!tekst(d.naziv)) return { greska: 'Upišite naziv nalaza.' };
+      if (vrijednost === null || Number.isNaN(vrijednost)) return { greska: 'Vrijednost nalaza mora biti broj.' };
+      // referentni raspon vrijedi samo ako naziv nije mijenjan
+      const ref = pl.prvotno && tekst(d.naziv) === pl.prvotno.naziv ? pl.prvotno.ref : null;
+      return { podaci: { naziv: tekst(d.naziv), vrijednost, jedinica: tekst(d.jedinica), ref, stiglo: d.stiglo || null } };
+    }
+    if (pl.vrsta === 'terapija') {
+      if (!tekst(d.lijek)) return { greska: 'Upišite lijek.' };
+      if (!PROMJENE.includes(d.promjena)) return { greska: 'Odaberite vrstu promjene.' };
+      if (d.promjena !== 'ukinut' && !tekst(d.doza)) return { greska: 'Upišite dozu.' };
+      return { podaci: { lijek: tekst(d.lijek), doza: tekst(d.doza), promjena: d.promjena, od: d.od || null } };
+    }
+    if (pl.vrsta === 'zadatak') {
+      if (!tekst(d.opis)) return { greska: 'Upišite opis zadatka.' };
+      const rok = d.rok ? new Date(d.rok) : null;
+      if (!rok || Number.isNaN(rok.getTime())) return { greska: 'Upišite rok zadatka.' };
+      return { podaci: { opis: tekst(d.opis), rok: rok.toISOString() } };
+    }
+    if (!tekst(d.tekst)) return { greska: 'Bilješka je prazna. Upišite tekst ili odbacite polje.' };
+    return { podaci: { tekst: tekst(d.tekst) } };
+  }
+
+  function glasovniUnosHtml(p) {
+    const tag = esc(p.tag);
+    const slusa = slusaTag === p.tag && G.slusa();
+    const n = nacrtZa(p.tag);
+    const unosi = potvrdeniUnosi(p.tag);
+
+    const kontrole = G.podrzan
+      ? `<button type="button" class="gumb glas-gumb${slusa ? ' slusa' : ''}" data-akcija="glas-diktiraj" data-tag="${tag}" aria-pressed="${slusa}">
+           ${slusa ? 'Zaustavi diktat' : 'Diktiraj'}
+         </button>
+         <span class="tiho mali-tekst" id="glas-stanje">${slusa ? 'Slušam… govorite hrvatski, jasno i ne prebrzo.' : 'Pritisnite i govorite. Kad stanete, tekst se razvrsta u polja.'}</span>`
+      : `<p class="napomena mali-tekst">Ovaj preglednik ne pretvara govor u tekst (radi u Chromeu i Edgeu, uz internet). Tekst možete upisati ili zalijepiti.</p>`;
+
+    const nacrtHtml = n ? `
+      <div class="nacrt" id="nacrt">
+        <h3>Nacrt za pregled: ${n.polja.length} ${n.polja.length === 1 ? 'polje' : 'polja'}</h3>
+        <p class="mali-tekst">Polja su popunjena automatski i <strong>nisu spremljena u zapis</strong>. Pregledajte svako, ispravite ako treba, pa potvrdite ili odbacite.</p>
+        ${n.napomene.length ? `<ul class="nacrt-napomene">${n.napomene.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+        <ul class="nacrt-polja">${n.polja.map((pl) => `
+          <li class="nacrt-polje" id="nacrt-${esc(pl.id)}">
+            <div class="nacrt-zaglavlje">
+              <strong>${VRSTE_POLJA[pl.vrsta]}</strong>
+              <span class="oznaka nepotvrdeno">Nepotvrđeno${pl.ureden ? ', ispravljeno' : ''}</span>
+            </div>
+            <p class="tiho mali-tekst">Iz diktata: „${esc(pl.izvor)}”</p>
+            ${nacrtPoljeUnosi(pl)}
+            <p class="greska" id="nacrt-greska-${esc(pl.id)}" role="alert"></p>
+            <div class="nacrt-gumbi">
+              <button type="button" class="gumb mali" data-akcija="glas-potvrdi" data-tag="${tag}" data-id="${esc(pl.id)}">Potvrdi</button>
+              <button type="button" class="gumb sporedni mali" data-akcija="glas-odbaci" data-tag="${tag}" data-id="${esc(pl.id)}">Odbaci</button>
+            </div>
+          </li>`).join('')}
+        </ul>
+        <details class="nacrt-diktat">
+          <summary>Izvorni diktat</summary>
+          ${n.diktati.map((t) => `<p class="mali-tekst">„${esc(t)}”</p>`).join('')}
+        </details>
+        <button type="button" class="poveznica mali-tekst" data-akcija="glas-odbaci-sve" data-tag="${tag}">Odbaci cijeli nacrt</button>
+      </div>` : '';
+
+    const potvrdenoHtml = unosi.length ? `
+      <div class="potvrdeno-glas">
+        <h3>Potvrđeno iz glasovnog unosa (${unosi.length})</h3>
+        <ul class="pregled-lista">${unosi.slice().reverse().map((u) => `
+          <li><strong>${VRSTE_POLJA[u.vrsta]}:</strong> ${esc(RZ.opisPolja(u))}
+            <span class="tiho mali-tekst">potvrdio/la ${esc(imeDjelatnika(u.potvrdio))} u ${kada(u.potvrdeno)}${u.ispravljeno ? ', ispravljeno' : ''}</span>
+          </li>`).join('')}</ul>
+      </div>` : '';
+
+    return `
+      <section class="glas" aria-labelledby="glas-naslov">
+        <h2 id="glas-naslov">Glasovni unos</h2>
+        <div class="glas-kontrole">${kontrole}</div>
+        <p class="greska" id="glas-greska" role="alert"></p>
+        <label for="glas-tekst">${G.podrzan ? 'Izgovoreni tekst (možete ga i upisati ili ispraviti)' : 'Tekst za razvrstavanje'}</label>
+        <textarea id="glas-tekst" rows="3" data-tag="${tag}" placeholder="Npr. tlak 120 na 80, puls 88, uveden ceftriakson 2 g i.v., zadatak: kontrola GUK-a u 21 sat">${esc(diktat.tag === p.tag ? diktat.tekst : '')}</textarea>
+        <div class="glas-akcije">
+          <button type="button" class="gumb sporedni mali" data-akcija="glas-razvrstaj" data-tag="${tag}">Razvrstaj u polja</button>
+          <details class="glas-primjeri">
+            <summary>Primjeri diktata za demo</summary>
+            ${PRIMJERI_DIKTATA.map((t, i) => `<button type="button" class="poveznica mali-tekst" data-akcija="glas-primjer" data-tag="${tag}" data-i="${i}">„${esc(t)}”</button>`).join('')}
+          </details>
+        </div>
+        ${nacrtHtml}
+        ${potvrdenoHtml}
+      </section>`;
+  }
+
+  // Tekst -> nacrt (dodaje se postojećem nacrtu tog pacijenta)
+  function razvrstajUNacrt(tag, tekst) {
+    const p = pacijent(tag);
+    const k = korisnik();
+    if (!p || !vidiPacijenta(k, p) || !tekst.trim()) return 0;
+    const r = RZ.razvrstaj(tekst, sadaZaZapis());
+    if (!r.polja.length) return 0;
+    const n = nacrtZa(tag) || { id: 'gn' + Date.now().toString(36), autor: k.id, vrijeme: sadaZaZapis(), diktati: [], napomene: [], polja: [] };
+    const br = n.diktati.length;
+    n.diktati.push(r.tekst);
+    n.napomene.push(...r.napomene);
+    r.polja.forEach((pl) => n.polja.push({
+      ...pl, id: `${n.id}-${br}-${pl.id}`, prvotno: JSON.parse(JSON.stringify(pl.podaci)), ureden: false
+    }));
+    spremiNacrt(tag, n);
+    zabiljezi('glasovni unos razvrstan u nacrt', tag, `${r.polja.length} ${r.polja.length === 1 ? 'polje' : 'polja'}, nepotvrđeno`);
+    if (diktat.tag === tag) diktat.tekst = '';
+    return r.polja.length;
+  }
+
+  function nakonRazvrstavanja(tag, broj) {
+    const naKartici = ruta().ime === 'kartica' && ruta().tag === tag;
+    if (!naKartici) return;
+    if (!broj) {
+      const el = document.getElementById('glas-greska');
+      if (el) el.textContent = 'U tekstu nema ništa za razvrstati.';
+      return;
+    }
+    render(true);
+    obavijest(`Nacrt: ${broj} ${broj === 1 ? 'polje' : 'polja'} za pregled i potvrdu.`);
+    const el = document.getElementById('nacrt');
+    if (el) el.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+
+  const PORUKE_GOVOR = {
+    nepodrzano: 'Ovaj preglednik ne pretvara govor u tekst. Upišite tekst.',
+    dozvola: 'Preglednik nema dozvolu za mikrofon. Dopustite mikrofon u postavkama stranice.',
+    mikrofon: 'Mikrofon nije pronađen.',
+    mreza: 'Prepoznavanje govora treba internet. Upišite tekst ručno.',
+    tisina: 'Nije se čuo govor. Pokušajte ponovno, bliže mikrofonu.',
+    greska: 'Prepoznavanje govora nije uspjelo. Upišite tekst ručno.'
+  };
+
+  function osvjeziGumbDiktata() {
+    const b = document.querySelector('[data-akcija="glas-diktiraj"]');
+    if (!b) return;
+    const slusa = G.slusa();
+    b.classList.toggle('slusa', slusa);
+    b.setAttribute('aria-pressed', String(slusa));
+    b.textContent = slusa ? 'Zaustavi diktat' : 'Diktiraj';
+    const s = document.getElementById('glas-stanje');
+    if (s) s.textContent = slusa ? 'Slušam… govorite hrvatski, jasno i ne prebrzo.' : 'Pritisnite i govorite. Kad stanete, tekst se razvrsta u polja.';
+  }
+
+  function diktiraj(tag) {
+    if (G.slusa()) { G.zaustavi(); return; }
+    const polje = document.getElementById('glas-tekst');
+    const pocetni = polje ? polje.value.trim() : '';
+    const greska = document.getElementById('glas-greska');
+    if (greska) greska.textContent = '';
+    diktat.tag = tag;
+    diktat.tekst = pocetni;
+    slusaTag = tag;
+    G.pokreni({
+      naTekst: (t) => {
+        diktat.tekst = (pocetni ? pocetni + ' ' : '') + t;
+        const el = document.getElementById('glas-tekst');
+        if (el && el.dataset.tag === tag) el.value = diktat.tekst;
+      },
+      naKraj: () => {
+        slusaTag = null;
+        osvjeziGumbDiktata();
+        // Diktat se ne gubi ni ako je djelatnik u međuvremenu otišao s kartice: ide u nacrt
+        if (diktat.tag === tag && diktat.tekst.trim()) nakonRazvrstavanja(tag, razvrstajUNacrt(tag, diktat.tekst));
+      },
+      naGresku: (kod) => {
+        const el = document.getElementById('glas-greska');
+        if (el) el.textContent = PORUKE_GOVOR[kod] || PORUKE_GOVOR.greska;
+      }
+    });
+    osvjeziGumbDiktata();
+  }
+
+  function potvrdiPolje(tag, id) {
+    const k = korisnik();
+    const p = pacijent(tag);
+    const n = nacrtZa(tag);
+    if (!p || !vidiPacijenta(k, p) || !n) return;
+    const pl = n.polja.find((x) => x.id === id);
+    if (!pl) return;
+    const r = provjeriPolje(pl);
+    if (r.greska) {
+      const el = document.getElementById('nacrt-greska-' + id);
+      if (el) el.textContent = r.greska;
+      return;
+    }
+    const sve = store.get('unosi', {});
+    const unos = {
+      id: 'gu' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      vrsta: pl.vrsta, podaci: r.podaci, izvor: pl.izvor, nacrt: n.id,
+      autor: n.autor, potvrdio: k.id, potvrdeno: sadaZaZapis(), ispravljeno: !!pl.ureden
+    };
+    (sve[tag] = sve[tag] || []).push(unos);
+    store.set('unosi', sve);
+    n.polja = n.polja.filter((x) => x.id !== id);
+    spremiNacrt(tag, n);
+    delete aiSazeci[tag];
+    zabiljezi('potvrđen glasovni unos', tag, `${VRSTE_POLJA[unos.vrsta]}: ${RZ.opisPolja(unos)}${unos.ispravljeno ? ' (ispravljeno)' : ''}`);
+    obavijest(`${VRSTE_POLJA[unos.vrsta]}: potvrđeno i spremljeno.`);
+    render(true);
+  }
+
+  function odbaciPolje(tag, id) {
+    const n = nacrtZa(tag);
+    if (!n) return;
+    const pl = n.polja.find((x) => x.id === id);
+    if (!pl) return;
+    n.polja = n.polja.filter((x) => x.id !== id);
+    spremiNacrt(tag, n);
+    zabiljezi('odbačen nacrt glasovnog unosa', tag, `${VRSTE_POLJA[pl.vrsta]}: ${RZ.opisPolja(pl)}`);
+    render(true);
+  }
+
   function ekranKartica(r, k) {
     const odbijeno = odbijenPristup(r, k);
     if (odbijeno) return odbijeno;
@@ -477,6 +792,7 @@
 
       <main>
         ${pregledHtml}
+        ${glasovniUnosHtml(p)}
         <ol class="ipass">
           <li>
             <span class="slovo" aria-hidden="true">I</span>
@@ -791,18 +1107,56 @@
       }
     } else if (a === 'ai') {
       napraviAISazetak(tag, b);
+    } else if (a === 'glas-diktiraj') {
+      diktiraj(tag);
+    } else if (a === 'glas-razvrstaj') {
+      if (G.slusa()) { G.zaustavi(); return; }   // razvrstava se kad diktat stane
+      const el = document.getElementById('glas-tekst');
+      const tekst = el ? el.value : '';
+      if (!tekst.trim()) {
+        document.getElementById('glas-greska').textContent = 'Izgovorite ili upišite tekst.';
+        return;
+      }
+      diktat.tag = tag;
+      diktat.tekst = tekst;
+      nakonRazvrstavanja(tag, razvrstajUNacrt(tag, tekst));
+    } else if (a === 'glas-primjer') {
+      const el = document.getElementById('glas-tekst');
+      if (el) {
+        el.value = PRIMJERI_DIKTATA[Number(b.dataset.i)] || '';
+        diktat.tag = tag;
+        diktat.tekst = el.value;
+        el.focus();
+      }
+    } else if (a === 'glas-potvrdi') {
+      potvrdiPolje(tag, b.dataset.id);
+    } else if (a === 'glas-odbaci') {
+      odbaciPolje(tag, b.dataset.id);
+    } else if (a === 'glas-odbaci-sve') {
+      const n = nacrtZa(tag);
+      if (n && confirm(`Odbaciti cijeli nacrt (${n.polja.length} nepotvrđenih polja)? Ništa od toga neće ući u zapis.`)) {
+        spremiNacrt(tag, null);
+        zabiljezi('odbačen nacrt glasovnog unosa', tag, `cijeli nacrt, ${n.polja.length} polja`);
+        render(true);
+      }
     } else if (a === 'reset') {
-      if (confirm('Obrisati sva preuzimanja, potvrde i bilješke uz krevet iz ovog demoa? Zapisnik ostaje.')) {
+      if (confirm('Obrisati sva preuzimanja, potvrde, bilješke uz krevet i glasovne unose iz ovog demoa? Zapisnik ostaje.')) {
+        G.zaustavi();
+        diktat.tag = null;
+        diktat.tekst = '';
         store.set('preuzimanja', {});
         store.set('biljeske', {});
+        store.set('nacrti', {});
+        store.set('unosi', {});
         Object.keys(potvrde).forEach((x) => delete potvrde[x]);
         Object.keys(aiSazeci).forEach((x) => delete aiSazeci[x]);
         zabiljezi('nova primopredaja');
         render();
       }
     } else if (a === 'demo-podaci') {
-      if (confirm('Vratiti početne demo podatke? Brišu se preuzimanja, potvrde, bilješke i zapisnik, a vi se odjavljujete.')) {
-        ['sesija', 'preuzimanja', 'biljeske', 'zapisnik', 'nakonPrijave']
+      if (confirm('Vratiti početne demo podatke? Brišu se preuzimanja, potvrde, bilješke, glasovni unosi i zapisnik, a vi se odjavljujete.')) {
+        G.zaustavi();
+        ['sesija', 'preuzimanja', 'biljeske', 'nacrti', 'unosi', 'zapisnik', 'nakonPrijave']
           .forEach((x) => store.remove(x));
         location.hash = '';
         location.reload();
@@ -858,6 +1212,35 @@
       idi('p=' + encodeURIComponent(tag));
     }
   });
+
+  // Uređivanje nacrta: sprema se odmah, bez ponovnog crtanja (da se ne izgubi fokus)
+  function urediNacrt(e) {
+    const el = e.target;
+    if (el.id === 'glas-tekst') {
+      diktat.tag = el.dataset.tag;
+      diktat.tekst = el.value;
+      return;
+    }
+    if (!el.dataset || !el.dataset.polje) return;
+    const r = ruta();
+    if (r.ime !== 'kartica') return;
+    const n = nacrtZa(r.tag);
+    const pl = n && n.polja.find((x) => x.id === el.dataset.polje);
+    if (!pl) return;
+    pl.podaci[el.dataset.kljuc] = el.type === 'datetime-local'
+      ? (el.value ? new Date(el.value).toISOString() : null)
+      : el.value;
+    if (!pl.ureden) {
+      pl.ureden = true;
+      const oznaka = document.querySelector(`#nacrt-${CSS.escape(pl.id)} .oznaka.nepotvrdeno`);
+      if (oznaka) oznaka.textContent = 'Nepotvrđeno, ispravljeno';
+    }
+    spremiNacrt(r.tag, n);
+    const greska = document.getElementById('nacrt-greska-' + pl.id);
+    if (greska) greska.textContent = '';
+  }
+  document.addEventListener('input', urediNacrt);
+  document.addEventListener('change', urediNacrt);
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') zatvoriSloj();

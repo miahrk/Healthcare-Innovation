@@ -25,36 +25,39 @@
   const zarez = (x) => String(x).replace('.', ',');
 
   // ---------- vitalni znakovi ----------
+  // Uvjerljivi rasponi (ne klinički normalni!): služe da se pogrešno čut ili krivi broj ne svrsta.
+  const RASPONI_VITALA = { fp: [20, 250], sys: [50, 260], dia: [20, 160], spo2: [50, 100], temp: [33, 43], fd: [4, 60] };
+  const uRasponu = (kljuc, x) => typeof x === 'number' && !Number.isNaN(x) && x >= RASPONI_VITALA[kljuc][0] && x <= RASPONI_VITALA[kljuc][1];
   const VITALI = [
     {
       kljuc: 'tlak', naziv: 'Tlak',
       re: re(`${PRIJE}(?:krvni\\s+)?(?:tlak|rr)${POSLIJE}${VEZA}(\\d{2,3})\\s*(?:\\/|na|kroz|preko)\\s*(\\d{2,3})(?:\\s*(?:mmhg|mm\\s*hg|milimetara(?:\\s+žive)?))?`),
       vrijednosti: (m) => ({ sys: Number(m[1]), dia: Number(m[2]) }),
-      uvjerljivo: (v) => v.sys >= 50 && v.sys <= 260 && v.dia >= 20 && v.dia <= 160 && v.sys > v.dia
+      uvjerljivo: (v) => uRasponu('sys', v.sys) && uRasponu('dia', v.dia) && v.sys > v.dia
     },
     {
       kljuc: 'fp', naziv: 'Srčana frekvencija',
       re: re(`${PRIJE}(?:puls|srčana\\s+frekvencija|frekvencija\\s+srca|fp|srce)${POSLIJE}${VEZA}(\\d{2,3})(?:\\s*(?:\\/\\s*min|u\\s+minuti|po\\s+minuti|otkucaja(?:\\s+u\\s+minuti)?))?`),
       vrijednosti: (m) => ({ fp: Number(m[1]) }),
-      uvjerljivo: (v) => v.fp >= 20 && v.fp <= 250
+      uvjerljivo: (v) => uRasponu('fp', v.fp)
     },
     {
       kljuc: 'spo2', naziv: 'Saturacija',
       re: re(`${PRIJE}(?:saturacija|spo2|sp\\s*o2|zasićenost(?:\\s+kisikom)?)${POSLIJE}${VEZA}(\\d{2,3})\\s*(?:%|posto)?`),
       vrijednosti: (m) => ({ spo2: Number(m[1]) }),
-      uvjerljivo: (v) => v.spo2 >= 50 && v.spo2 <= 100
+      uvjerljivo: (v) => uRasponu('spo2', v.spo2)
     },
     {
       kljuc: 'temp', naziv: 'Temperatura',
       re: re(`${PRIJE}(?:tjelesna\\s+temperatura|temperatura|temp|febrilan|febrilna|t(?=\\s*\\d{2}(?:[.,]\\d\\s*°|[.,]\\d|\\s*°)))${POSLIJE}${VEZA}(\\d{2}(?:[.,]\\d)?)\\s*(?:°\\s*c|°|stupnjeva(?:\\s+celzija)?|celzija)?`),
       vrijednosti: (m) => ({ temp: uBroj(m[1]) }),
-      uvjerljivo: (v) => v.temp >= 33 && v.temp <= 43
+      uvjerljivo: (v) => uRasponu('temp', v.temp)
     },
     {
       kljuc: 'fd', naziv: 'Frekvencija disanja',
       re: re(`${PRIJE}(?:frekvencija\\s+disanja|disanje|respiracija|respiracije|fd)${POSLIJE}${VEZA}(\\d{1,2})(?:\\s*(?:\\/\\s*min|u\\s+minuti|po\\s+minuti|udaha(?:\\s+u\\s+minuti)?))?`),
       vrijednosti: (m) => ({ fd: Number(m[1]) }),
-      uvjerljivo: (v) => v.fd >= 4 && v.fd <= 60
+      uvjerljivo: (v) => uRasponu('fd', v.fd)
     }
   ];
 
@@ -320,5 +323,5 @@
     return d.tekst;
   }
 
-  window.RAZVRSTAVANJE = { razvrstaj, opisPolja, normaliziraj };
+  window.RAZVRSTAVANJE = { razvrstaj, opisPolja, normaliziraj, RASPONI_VITALA, uRasponu };
 })();
