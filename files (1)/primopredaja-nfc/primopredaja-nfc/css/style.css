@@ -312,54 +312,9 @@ td:first-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
   #obavijest, .traka span { transition: none; }
 }
 
-/* ---------- obrasci (novi pacijent, profil, administracija) ---------- */
-.forma { display: grid; gap: 0.4rem; justify-items: stretch; }
-.forma label { font-weight: 700; margin-top: 0.35rem; }
-.forma input, .forma select, .forma textarea {
-  width: 100%; min-height: 2.75rem; padding: 0.5rem 0.6rem;
-  border: 2px solid var(--crta); border-radius: 0.5rem; background: var(--povrsina);
-}
-.forma input:invalid:not(:placeholder-shown):not(:focus) { border-color: var(--upoz); }
-.gumbi-red { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem; }
-.forma .gumb { justify-self: start; margin-top: 0.5rem; }
-
-/* ---------- alergije ---------- */
+/* ---------- alergije (na vrhu kartice) ---------- */
 .alergije-traka {
   margin: 0.6rem 0 0.4rem; padding: 0.45rem 0.7rem; border-radius: 0.4rem;
   background: var(--kriticno-poz); color: var(--kriticno); font-size: 0.95rem;
 }
 .alergije-traka.nema { background: transparent; color: var(--tiho); padding-left: 0; }
-
-/* ---------- profil pacijenta ---------- */
-.profil-zaglavlje { padding: 0.5rem 0 1rem; border-bottom: 1px solid var(--crta); }
-.profil-zaglavlje h1:focus { outline: none; }
-/* ---------- upis podataka ---------- */
-.poveznica.opasno { color: var(--kriticno); }
-.unos-nav { margin-top: 0.75rem; }
-.unos-nav p { margin: 0 0 0.25rem; }
-.unos-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.unos-nav a {
-  display: inline-block; padding: 0.3rem 0.7rem; border: 1px solid var(--crta); border-radius: 99px;
-  background: var(--povrsina); text-decoration: none; font-size: 0.92rem;
-}
-.unos-nav a[aria-current] { background: var(--akcija); color: var(--akcija-tekst); border-color: var(--akcija); font-weight: 700; }
-
-.unos-forma { margin: 1.25rem 0; }
-.forma-zapis {
-  padding: 1rem; background: var(--povrsina); border: 1px solid var(--crta); border-radius: 0.75rem;
-}
-.forma-zapis.uredjivanje { border: 2px solid var(--fokus); }
-.forma-zapis h2 { margin-bottom: 0.25rem; }
-.polja-mreza { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 0.25rem 1rem; }
-.polje { display: grid; gap: 0.3rem; align-content: start; }
-.polje.siroko { grid-column: 1 / -1; }
-
-.zapis-lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--crta); }
-.zapis-stavka { padding: 0.75rem 0.4rem; border-bottom: 1px solid var(--crta); border-radius: 0.25rem; }
-.zapis-stavka.istaknuto { outline: 3px solid var(--fokus); background: var(--povrsina); }
-.zapis-glava { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; }
-.zapis-vrijeme { font-weight: 700; font-variant-numeric: tabular-nums; }
-.zapis-tekst { margin: 0.25rem 0; }
-.meta { font-size: 0.85rem; color: var(--tiho); margin: 0; }
-.zapis-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin-top: 0.5rem; }
-

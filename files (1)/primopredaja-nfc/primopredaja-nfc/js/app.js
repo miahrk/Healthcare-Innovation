@@ -41,18 +41,8 @@
     return s ? djelatnik(s.id) || null : null;
   }
 
-  // ---------- uloge i razine pristupa ----------
-  // Prava su na jednom mjestu kako bi se lako provjerila i promijenila.
-  const ROLE = {
-    lijecnik: { prava: ['terapija', 'vizita', 'nalazi', 'vitali', 'zadaci', 'plan', 'stanje', 'preuzimanje'] },
-    sestra: { prava: ['primjena', 'vitali', 'sestrinska', 'zadaci', 'preuzimanje'] }
-  };
-
-  const rola = (d) => (d && d.rola) || null;
-  const ima = (k, pravo) => !!k && (ROLE[rola(k)] || { prava: [] }).prava.includes(pravo);
-  // Djelatnik vidi i mijenja samo pacijente svog odjela
-  const vidiPacijenta = (k, p) => !!k && !!k.odjel && p.odjel === k.odjel;
-  const smijeMijenjati = vidiPacijenta;
+  // Djelatnik vidi samo pacijente svog odjela (liječnik i sestra imaju ista prava)
+  const vidiPacijenta = (k, p) => !!k && p.odjel === k.odjel;
 
   // Trenutno vrijeme za zapise: stvarno vrijeme, ali nikad prije demo-vremena smjene
   function sadaZaZapis() {
@@ -67,82 +57,6 @@
     if (isti) return vr(iso);
     if (d.toDateString() === sutra.toDateString()) return 'sutra ' + vr(iso);
     return P.vrijemeDatum(iso);
-  }
-
-  const pad2 = (n) => String(n).padStart(2, '0');
-  const kljucDatuma = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-
-  // '2026-11-13' ili ISO vrijeme -> '13. 11. 2026.'
-  function datum(s) {
-    if (!s) return '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-      const [y, m, d] = s.split('-').map(Number);
-      return `${d}. ${m}. ${y}.`;
-    }
-    const d = new Date(s);
-    return `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}.`;
-  }
-
-  // ISO vrijeme -> '13. 11. 2026. u 18:55'
-  function datumVrijeme(iso) {
-    if (!iso) return '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return datum(iso);
-    return `${datum(iso)} u ${vr(iso)}`;
-  }
-
-  // ISO <-> vrijednost polja <input type="datetime-local">
-  function zaUnos(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return `${kljucDatuma(d)}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  }
-  const izUnosa = (v) => (v ? new Date(v).toISOString() : null);
-
-  // Upisi napravljeni u demou čuvaju se
-  // u localStorage-u i primjenjuju na podatke iz data.js pri pokretanju.
-  function primijeniIzmjene() {
-    const klinika = store.get('klinika', {});
-    D.pacijenti.forEach((p) => {
-      if (klinika[p.tag]) Object.assign(p, klinika[p.tag]);
-      normalizirajZapise(p);
-    });
-  }
-
-  // Klinički zapisi koji se mogu upisivati, uređivati i brisati. Kad se pacijentu išta promijeni,
-  // sprema se cijela kopija tih polja, pa izmjene i brisanja vrijede i za zapise iz data.js.
-  const KLINICKA_POLJA = ['stanje', 'stanjePovijest', 'terapija', 'primjene', 'nalazi', 'vitali', 'biljeske', 'zadaci', 'akoOnda'];
-
-  function spremiKliniku(p) {
-    const sve = store.get('klinika', {});
-    sve[p.tag] = Object.fromEntries(KLINICKA_POLJA.map((f) => [f, p[f]]));
-    store.set('klinika', sve);
-    delete aiSazeci[p.tag];
-  }
-
-  // Zapisi iz data.js nemaju podatak tko ih je i kada upisao: uzima se vrijeme samog zapisa.
-  function normalizirajZapise(p) {
-    const pocetak = D.smjena.od;
-    const ranije = (a, b) => (new Date(a) < new Date(b) ? a : b);
-    ['terapija', 'primjene', 'nalazi', 'vitali', 'biljeske', 'zadaci', 'akoOnda'].forEach((f) => { p[f] = p[f] || []; });
-    p.vitali.forEach((x) => { x.upisano = x.upisano || x.vrijeme; });
-    p.nalazi.forEach((x) => { x.upisano = x.upisano || x.stiglo || x.naruceno; });
-    p.terapija.forEach((x) => { x.upisano = x.upisano || x.od; });
-    p.primjene.forEach((x) => { x.upisano = x.upisano || x.vrijeme; });
-    p.biljeske.forEach((x) => {
-      x.upisano = x.upisano || x.vrijeme;
-      x.upisao = x.upisao || x.autor;
-      x.vrsta = x.vrsta || (rola(djelatnik(x.autor)) === 'sestra' ? 'sestrinska' : 'vizita');
-    });
-    p.zadaci.forEach((x) => { x.upisano = x.upisano || ranije(x.rok, pocetak); });
-    p.akoOnda.forEach((x) => { x.upisano = x.upisano || pocetak; });
-    if (!p.stanjePovijest) {
-      const prijem = p.profil.prijem;
-      p.stanjePovijest = [{
-        id: 's1', stanje: p.stanje,
-        upisano: prijem ? (/^\d{4}-\d{2}-\d{2}$/.test(prijem) ? new Date(prijem + 'T08:00').toISOString() : prijem) : pocetak,
-        upisao: null, napomena: 'stanje pri prijemu'
-      }];
-    }
   }
 
   const biljeskeUzKrevet = (tag) => store.get('biljeske', {})[tag] || [];
@@ -169,7 +83,6 @@
     if (h.includes('=')) {
       const par = new URLSearchParams(h);
       if (par.get('p')) return { ime: 'kartica', tag: par.get('p'), nfc: par.get('nfc') === '1' };
-      if (par.get('unos')) return { ime: 'unos', tag: par.get('unos'), s: par.get('s') || 'vitali' };
     }
     return { ime: h || 'odjel' };
   }
@@ -193,14 +106,12 @@
     zatvoriSloj();
     const r = ruta();
     const k = korisnik();
-    if (!(r.ime === 'unos' && uredjivanje && uredjivanje.tag === r.tag && uredjivanje.sekcija === r.s)) uredjivanje = null;
 
     if (!k) {
       if (r.ime !== 'prijava' && r.ime !== 'odjel') store.set('nakonPrijave', location.hash);
       return prikazi(ekranPrijava());
     }
     if (r.ime === 'kartica') return prikazi(ekranKartica(r, k), zadrziPolozaj);
-    if (r.ime === 'unos') return prikazi(ekranUnos(r, k), zadrziPolozaj);
     if (r.ime === 'zapisnik') return prikazi(ekranZapisnik(k));
     if (r.ime === 'narukvice') return prikazi(ekranNarukvice(k));
     return prikazi(ekranOdjel(k), zadrziPolozaj);
@@ -464,7 +375,6 @@
             : 'Otvoreno ručno, bez skeniranja narukvice'}
         </p>
         ${alergijeTrakaHtml(p)}
-        ${navigacijaUnosaHtml(p, null, k)}
       </header>
 
       <main>
@@ -521,353 +431,6 @@
           <ul class="zapisi">${zapisiHtml}</ul>
         </details>
       </main>`;
-  }
-
-  // ---------- ekran: upis podataka (vitalni znakovi, nalazi, terapija, bilješke ...) ----------
-  // Svaka vrsta zapisa opisana je jednom konfiguracijom: polja obrasca, pravo potrebno za
-  // upis, uređivanje i brisanje te tekst zapisa (za prikaz i zapisnik).
-  const STANJA = { stabilan: 'stabilan', nadzor: 'pojačan nadzor', nestabilan: 'nestabilan' };
-  const brojHr = (x) => (x === null || x === undefined ? '' : String(x).replace('.', ','));
-  const izvanRef = (x) => typeof x.vrijednost === 'number' && Array.isArray(x.ref) &&
-    (x.vrijednost < x.ref[0] || x.vrijednost > x.ref[1]);
-  const opisNalaza = (x) => (typeof x.vrijednost === 'number'
-    ? `${brojHr(x.vrijednost)} ${x.jedinica || ''}${x.ref ? ` (ref. ${brojHr(x.ref[0])}–${brojHr(x.ref[1])})` : ''}`.trim()
-    : '') + (x.opis ? (typeof x.vrijednost === 'number' ? ', ' : '') + x.opis : '');
-  const oznakaHtml = (vrsta, tekst) => `<span class="oznaka ${vrsta}">${esc(tekst)}</span>`;
-  const VRSTE_BILJESKI = { vizita: 'iz vizite', sestrinska: 'sestrinska', krevet: 'uz krevet' };
-
-  const UNOS = {
-    vitali: {
-      naslov: 'Vitalni znakovi', jednina: 'vitalni znakovi', pref: 'v', pravo: 'vitali',
-      vrijeme: (x) => x.vrijeme,
-      polja: [
-        { k: 'vrijeme', l: 'Vrijeme mjerenja', tip: 'datetime-local', obavezno: true },
-        { k: 'fp', l: 'Srčana frekvencija (/min)', tip: 'number', min: 20, max: 250, obavezno: true },
-        { k: 'sys', l: 'Sistolički tlak (mmHg)', tip: 'number', min: 40, max: 300, obavezno: true },
-        { k: 'dia', l: 'Dijastolički tlak (mmHg)', tip: 'number', min: 20, max: 200, obavezno: true },
-        { k: 'spo2', l: 'Saturacija SpO2 (%)', tip: 'number', min: 50, max: 100, obavezno: true },
-        { k: 'temp', l: 'Temperatura (°C)', tip: 'number', min: 30, max: 43, korak: '0.1', obavezno: true },
-        { k: 'fd', l: 'Frekvencija disanja (/min)', tip: 'number', min: 4, max: 60, obavezno: true }
-      ],
-      tekst: (x) => `FP ${x.fp}/min, RR ${x.sys}/${x.dia} mmHg, SpO2 ${x.spo2} %, T ${brojHr(x.temp)} °C, FD ${x.fd}/min`
-    },
-    nalazi: {
-      naslov: 'Nalazi', jednina: 'nalaz', pref: 'n', pravo: 'nalazi',
-      vrijeme: (x) => x.stiglo || x.naruceno,
-      polja: [
-        { k: 'naziv', l: 'Pretraga', obavezno: true, placeholder: 'npr. Kalij (K+), RTG srca i pluća' },
-        { k: 'naruceno', l: 'Naručeno', tip: 'datetime-local', obavezno: true },
-        { k: 'stiglo', l: 'Nalaz stigao', tip: 'datetime-local', napomena: 'Ostavite prazno ako se nalaz još čeka.' },
-        { k: 'vrijednost', l: 'Brojčana vrijednost', tip: 'number', korak: 'any' },
-        { k: 'jedinica', l: 'Jedinica', placeholder: 'npr. mmol/L' },
-        { k: 'refOd', l: 'Referentni raspon od', tip: 'number', korak: 'any' },
-        { k: 'refDo', l: 'Referentni raspon do', tip: 'number', korak: 'any' },
-        { k: 'opis', l: 'Opisni nalaz', tip: 'textarea', placeholder: 'za nalaze bez brojčane vrijednosti, npr. opis radiologa' }
-      ],
-      ucitaj: (x) => ({ refOd: x.ref ? x.ref[0] : null, refDo: x.ref ? x.ref[1] : null }),
-      spremi: (v, staro) => {
-        const ref = v.refOd !== null && v.refDo !== null ? [v.refOd, v.refDo] : null;
-        delete v.refOd; delete v.refDo;
-        return { ...v, ref, pregledao: staro ? staro.pregledao : null };
-      },
-      tekst: (x) => `${x.naziv}: ${x.stiglo ? (opisNalaza(x) || 'stigao') : 'na čekanju'}`,
-      oznake: (x) => !x.stiglo ? oznakaHtml('tiho-oznaka', 'čeka se')
-        : (izvanRef(x) ? oznakaHtml('kriticno', 'izvan raspona') + ' ' : '') +
-          (x.pregledao ? oznakaHtml('ok', `pregledao/la ${imeDjelatnika(x.pregledao)}`) : oznakaHtml('upoz', 'nije pregledan')),
-      dodatno: (x, p, k) => x.stiglo && !x.pregledao && ima(k, 'nalazi')
-        ? `<button type="button" class="gumb mali" data-akcija="nalaz-pregledan" data-tag="${esc(p.tag)}" data-id="${esc(x.id)}">Označi pregledanim</button>` : ''
-    },
-    terapija: {
-      naslov: 'Terapija', jednina: 'terapija', pref: 't', pravo: 'terapija',
-      vrijeme: (x) => x.promjenaU || x.od,
-      polja: [
-        { k: 'lijek', l: 'Lijek', obavezno: true },
-        { k: 'doza', l: 'Doza, put i učestalost primjene', obavezno: true, placeholder: 'npr. 40 mg i.v. svakih 12 h' },
-        { k: 'od', l: 'Početak primjene', tip: 'datetime-local', obavezno: true },
-        { k: 'promjena', l: 'Napomena o promjeni', placeholder: 'npr. uveden, doza smanjena s 40 mg' }
-      ],
-      spremi: (v, staro) => {
-        if (!staro) return { ...v, promjena: v.promjena || 'uveden' };
-        if (staro.doza === v.doza) return v;
-        // Promjena doze pokreće upozorenje dok se ne spomene u bilješci
-        const promjena = v.promjena === (staro.promjena || '') ? `doza promijenjena (bilo: ${staro.doza})` : v.promjena;
-        return { ...v, promjena, promjenaU: sadaZaZapis() };
-      },
-      tekst: (x) => `${x.lijek} ${x.doza}${x.promjena ? ` (${x.promjena})` : ''}`,
-      oznake: (x) => `<span class="tiho mali-tekst">od ${esc(datumVrijeme(x.od))}</span>`
-    },
-    primjene: {
-      naslov: 'Primjena lijekova', kratko: 'Primjena lijekova', jednina: 'primjena lijeka', pref: 'm', pravo: 'primjena',
-      vrijeme: (x) => x.vrijeme,
-      polja: [
-        { k: 'terapijaId', l: 'Lijek iz propisane terapije', tip: 'select', obavezno: true,
-          opcije: (p) => p.terapija.map((t) => ({ v: t.id, l: `${t.lijek} ${t.doza}` })) },
-        { k: 'vrijeme', l: 'Vrijeme primjene', tip: 'datetime-local', obavezno: true },
-        { k: 'status', l: 'Status', tip: 'select', obavezno: true, zadano: () => 'primijenjeno',
-          opcije: () => ['primijenjeno', 'pacijent odbio', 'odgođeno', 'nije primijenjeno'].map((s) => ({ v: s, l: s })) },
-        { k: 'napomena', l: 'Napomena', placeholder: 'npr. mjesto primjene, razlog odgode' }
-      ],
-      spremi: (v, staro, p) => {
-        const t = p.terapija.find((x) => x.id === v.terapijaId);
-        return { ...v, lijek: t ? t.lijek : (staro || {}).lijek, doza: t ? t.doza : (staro || {}).doza };
-      },
-      tekst: (x) => `${x.lijek} ${x.doza}: ${x.status}${x.napomena ? `, ${x.napomena}` : ''}`,
-      oznake: (x) => oznakaHtml(x.status === 'primijenjeno' ? 'ok' : 'upoz', x.status),
-      bezUnosa: (p) => (p.terapija.length ? '' : 'Pacijent nema propisane terapije. Terapiju propisuje liječnik.')
-    },
-    biljeske: {
-      naslov: 'Bilješke', jednina: 'bilješka', pref: 'b',
-      // Liječnik piše i uređuje bilješke iz vizite, sestra sestrinske; bilješke uz krevet su dio primopredaje
-      pravo: (k, x) => (x ? x.vrsta !== 'krevet' && ima(k, x.vrsta) : ima(k, 'vizita') || ima(k, 'sestrinska')),
-      naslovForme: (k) => (ima(k, 'vizita') ? 'bilješka iz vizite' : 'sestrinska bilješka'),
-      lista: (p) => [...p.biljeske, ...biljeskeUzKrevet(p.tag).map((b) => ({ ...b, vrsta: 'krevet', upisano: b.vrijeme, upisao: b.autor }))],
-      vrijeme: (x) => x.vrijeme,
-      polja: [
-        { k: 'vrijeme', l: 'Vrijeme', tip: 'datetime-local', obavezno: true },
-        { k: 'tekst', l: 'Bilješka', tip: 'textarea', obavezno: true }
-      ],
-      spremi: (v, staro, p, k) => ({
-        ...v,
-        autor: staro ? staro.autor : k.id,
-        vrsta: staro ? staro.vrsta : (ima(k, 'vizita') ? 'vizita' : 'sestrinska')
-      }),
-      tekst: (x) => x.tekst,
-      oznake: (x) => oznakaHtml(x.vrsta === 'vizita' ? 'ok' : 'tiho-oznaka', VRSTE_BILJESKI[x.vrsta] || 'bilješka') +
-        ` <span class="tiho mali-tekst">${esc(imeDjelatnika(x.autor))}</span>`
-    },
-    zadaci: {
-      naslov: 'Zadaci', jednina: 'zadatak', pref: 'z', pravo: 'zadaci', uzlazno: true,
-      vrijeme: (x) => x.rok,
-      polja: [
-        { k: 'opis', l: 'Zadatak', obavezno: true, placeholder: 'npr. kontrola elektrolita' },
-        { k: 'rok', l: 'Rok', tip: 'datetime-local', obavezno: true }
-      ],
-      tekst: (x) => x.opis,
-      oznake: (x) => x.gotovo
-        ? oznakaHtml('ok', `obavljeno${x.obavio ? ', ' + imeDjelatnika(x.obavio) : ''}`)
-        : new Date(x.rok) < new Date(D.sada) ? oznakaHtml('kriticno', 'kasni') : '',
-      dodatno: (x, p, k) => ima(k, 'zadaci')
-        ? `<button type="button" class="gumb ${x.gotovo ? 'sporedni ' : ''}mali" data-akcija="zadatak-gotovo" data-tag="${esc(p.tag)}" data-id="${esc(x.id)}">${x.gotovo ? 'Vrati na neobavljeno' : 'Označi obavljenim'}</button>` : ''
-    },
-    akoOnda: {
-      naslov: 'Plan za moguće situacije', kratko: 'Plan', jednina: 'plan', pref: 'a', pravo: 'plan',
-      vrijeme: (x) => x.upisano,
-      polja: [
-        { k: 'ako', l: 'Ako (situacija)', obavezno: true, placeholder: 'npr. saturacija ispod 90 %' },
-        { k: 'onda', l: 'Onda (postupak)', obavezno: true, placeholder: 'npr. javiti dežurnom liječniku' }
-      ],
-      tekst: (x) => `Ako ${x.ako}: ${x.onda}`
-    },
-    stanje: {
-      naslov: 'Stanje pacijenta', kratko: 'Stanje', jednina: 'procjena stanja', pref: 's', pravo: 'stanje',
-      polje: 'stanjePovijest', nepromjenjivo: true,
-      vrijeme: (x) => x.upisano,
-      polja: [
-        { k: 'stanje', l: 'Stanje', tip: 'select', obavezno: true, zadano: (p) => p.stanje,
-          opcije: () => Object.entries(STANJA).map(([v, l]) => ({ v, l })) },
-        { k: 'napomena', l: 'Obrazloženje', tip: 'textarea', placeholder: 'npr. hemodinamski stabilan, afebrilan' }
-      ],
-      tekst: (x) => `${STANJA[x.stanje] || x.stanje}${x.napomena ? `: ${x.napomena}` : ''}`,
-      nakon: (p) => {
-        const zadnje = [...p.stanjePovijest].sort((a, b) => new Date(b.upisano) - new Date(a.upisano))[0];
-        if (zadnje) p.stanje = zadnje.stanje;
-      }
-    }
-  };
-  Object.entries(UNOS).forEach(([kljuc, c]) => { c.polje = c.polje || kljuc; });
-
-  const dozvoljeno = (c, k, x) => (typeof c.pravo === 'function' ? c.pravo(k, x) : ima(k, c.pravo));
-  const zapisiSekcije = (c, p) => (c.lista ? c.lista(p) : p[c.polje]);
-  let uredjivanje = null; // { tag, sekcija, id } zapisa koji se uređuje
-
-  function metaHtml(x) {
-    const dijelovi = [`Upisano ${datumVrijeme(x.upisano)}${x.upisao ? `, ${imeDjelatnika(x.upisao)}` : ', iz bolničkog sustava'}`];
-    if (x.izmijenjeno) dijelovi.push(`izmijenjeno ${datumVrijeme(x.izmijenjeno)}, ${imeDjelatnika(x.izmijenio)}`);
-    return `<p class="meta">${esc(dijelovi.join(' · '))}</p>`;
-  }
-
-  // ID-evi se ne ponavljaju ni nakon brisanja, jer se na njih pozivaju upozorenja i izvori
-  function noviId(p, lista, pref) {
-    const brojaci = store.get('idBrojaci', {});
-    const kljuc = `${p.tag}:${pref}`;
-    const naj = lista.reduce((m, x) => {
-      const r = new RegExp(`^${pref}(\\d+)$`).exec(x.id);
-      return r ? Math.max(m, Number(r[1])) : m;
-    }, brojaci[kljuc] || 0);
-    brojaci[kljuc] = naj + 1;
-    store.set('idBrojaci', brojaci);
-    return pref + (naj + 1);
-  }
-
-  function navigacijaUnosaHtml(p, aktivno) {
-    return `
-      <nav class="unos-nav" aria-label="Zapisi pacijenta">
-        <p class="tiho mali-tekst">${aktivno ? 'Vrsta zapisa' : 'Zapisi i upis podataka'}</p>
-        <ul>${Object.entries(UNOS).map(([s, c]) => `
-          <li><a href="#unos=${encodeURIComponent(p.tag)}&s=${s}" ${s === aktivno ? 'aria-current="page"' : ''}>${esc(c.kratko || c.naslov)}</a></li>`).join('')}
-        </ul>
-      </nav>`;
-  }
-
-  function formaZapisaHtml(c, sek, p, k, staro) {
-    const vrijednosti = staro ? { ...staro, ...(c.ucitaj ? c.ucitaj(staro) : {}) } : {};
-    const sada = zaUnos(sadaZaZapis());
-    const polja = c.polja.map((f, i) => {
-      const id = `u-${sek}-${f.k}`;
-      let val = vrijednosti[f.k];
-      if (f.tip === 'datetime-local') val = staro ? zaUnos(val) : (f.obavezno ? sada : '');
-      if (!staro && f.zadano) val = f.zadano(p);
-      val = val ?? '';
-      const atr = `id="${id}" name="${f.k}" ${f.obavezno ? 'required' : ''} ${staro && i === 0 ? 'data-fokus' : ''}`;
-      let unos;
-      if (f.tip === 'select') {
-        const opcije = f.opcije(p);
-        unos = `<select ${atr}>
-          ${(!f.zadano || !f.obavezno) ? `<option value="">${f.obavezno ? 'odaberite' : '—'}</option>` : ''}
-          ${opcije.map((o) => `<option value="${esc(o.v)}" ${String(o.v) === String(val) ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}
-        </select>`;
-      } else if (f.tip === 'textarea') {
-        unos = `<textarea ${atr} rows="3" placeholder="${esc(f.placeholder || '')}">${esc(val)}</textarea>`;
-      } else {
-        unos = `<input ${atr} type="${f.tip || 'text'}" value="${esc(val)}" autocomplete="off"
-          ${f.min != null ? `min="${f.min}"` : ''} ${f.max != null ? `max="${f.max}"` : ''}
-          ${f.tip === 'number' ? `step="${f.korak || '1'}" inputmode="decimal"` : ''}
-          placeholder="${esc(f.placeholder || '')}">`;
-      }
-      return `<div class="polje${f.tip === 'textarea' ? ' siroko' : ''}">
-          <label for="${id}">${esc(f.l)}${f.obavezno ? '' : ' <span class="tiho">(neobavezno)</span>'}</label>
-          ${unos}
-          ${f.napomena ? `<span class="tiho mali-tekst">${esc(f.napomena)}</span>` : ''}
-        </div>`;
-    }).join('');
-    const naslov = staro ? `Uredi: ${c.jednina}` : `Novi upis: ${c.naslovForme ? c.naslovForme(k) : c.jednina}`;
-    return `
-      <form class="forma forma-zapis${staro ? ' uredjivanje' : ''}" data-tag="${esc(p.tag)}" data-sekcija="${sek}" data-id="${staro ? esc(staro.id) : ''}" autocomplete="off">
-        <h2>${esc(naslov)}</h2>
-        <div class="polja-mreza">${polja}</div>
-        <p class="tiho mali-tekst">${staro
-          ? 'Izmjena se bilježi s vašim imenom, datumom i vremenom. Izvorni upis ostaje naveden.'
-          : `Zapis će biti označen vašim imenom (${esc(k.ime)}) te datumom i vremenom upisa.`}</p>
-        <div class="gumbi-red">
-          <button type="submit" class="gumb mali">${staro ? 'Spremi izmjene' : 'Spremi'}</button>
-          ${staro ? '<button type="button" class="gumb sporedni mali" data-akcija="odustani-uredi">Odustani</button>' : ''}
-        </div>
-      </form>`;
-  }
-
-  function ekranUnos(r, k) {
-    const odbijeno = odbijenPristup(r, k);
-    if (odbijeno) return odbijeno;
-    const p = pacijent(r.tag);
-    const sek = UNOS[r.s] ? r.s : 'vitali';
-    const c = UNOS[sek];
-    const smije = smijeMijenjati(k, p);
-    const smjer = c.uzlazno ? 1 : -1;
-    const stavke = [...zapisiSekcije(c, p)]
-      .sort((a, b) => smjer * (new Date(c.vrijeme(a)) - new Date(c.vrijeme(b))));
-    const ured = uredjivanje && uredjivanje.sekcija === sek ? p[c.polje].find((x) => x.id === uredjivanje.id) : null;
-
-    let forma;
-    if (!smije) {
-      forma = '<p class="napomena">Pacijent nije na vašem odjelu.</p>';
-    } else if (ured && dozvoljeno(c, k, ured)) {
-      forma = formaZapisaHtml(c, sek, p, k, ured);
-    } else if (!dozvoljeno(c, k, null)) {
-      forma = `<p class="napomena">Vaša uloga ne uključuje upis: ${esc(c.naslov.toLowerCase())}. Zapise možete pregledavati.</p>`;
-    } else if (c.bezUnosa && c.bezUnosa(p)) {
-      forma = `<p class="napomena">${esc(c.bezUnosa(p))}</p>`;
-    } else {
-      forma = formaZapisaHtml(c, sek, p, k, null);
-    }
-
-    const lista = stavke.length
-      ? `<ol class="zapis-lista">${stavke.map((x) => {
-          const mozeMijenjati = smije && !c.nepromjenjivo && dozvoljeno(c, k, x);
-          const gumbi = [
-            smije && c.dodatno ? c.dodatno(x, p, k) : '',
-            mozeMijenjati ? `<button type="button" class="gumb sporedni mali" data-akcija="uredi-zapis" data-tag="${esc(p.tag)}" data-sekcija="${sek}" data-id="${esc(x.id)}">Uredi</button>` : '',
-            mozeMijenjati ? `<button type="button" class="poveznica opasno" data-akcija="obrisi-zapis" data-tag="${esc(p.tag)}" data-sekcija="${sek}" data-id="${esc(x.id)}">Obriši</button>` : ''
-          ].filter(Boolean).join('');
-          return `
-            <li class="zapis-stavka${ured && ured.id === x.id ? ' istaknuto' : ''}" id="zs-${esc(x.id)}">
-              <div class="zapis-glava">
-                <span class="zapis-vrijeme">${esc(datumVrijeme(c.vrijeme(x)))}</span>
-                <span class="zapis-id">${esc(x.id)}</span>
-                ${c.oznake ? c.oznake(x) : ''}
-              </div>
-              <p class="zapis-tekst">${esc(c.tekst(x, p))}</p>
-              ${metaHtml(x)}
-              ${gumbi ? `<div class="zapis-gumbi">${gumbi}</div>` : ''}
-            </li>`;
-        }).join('')}</ol>`
-      : `<p class="tiho">Nema zapisa: ${esc(c.naslov.toLowerCase())}.</p>`;
-
-    return `
-      ${zaglavlje(k, '')}
-      <header class="profil-zaglavlje">
-        <a href="#p=${encodeURIComponent(p.tag)}" class="natrag">Natrag na karticu za primopredaju</a>
-        <p class="tiho">${esc(D.odjeli[p.odjel] || p.odjel)}, soba ${esc(p.soba)}, krevet ${esc(p.krevet)}</p>
-        <h1 ${ured ? '' : 'data-fokus'} tabindex="-1">${esc(p.ime)}, ${p.dob}: ${esc(c.naslov.toLowerCase())}</h1>
-        ${alergijeTrakaHtml(p)}
-        ${navigacijaUnosaHtml(p, sek)}
-      </header>
-      <main>
-        <section class="unos-forma">${forma}</section>
-        <section aria-labelledby="zapisi-naslov">
-          <h2 id="zapisi-naslov">Upisano (${stavke.length})</h2>
-          ${lista}
-        </section>
-      </main>`;
-  }
-
-  function spremiZapis(f, k) {
-    const p = pacijent(f.dataset.tag);
-    const sek = f.dataset.sekcija;
-    const c = UNOS[sek];
-    if (!p || !c || !smijeMijenjati(k, p)) return;
-    const lista = p[c.polje];
-    const staro = f.dataset.id ? lista.find((x) => x.id === f.dataset.id) : null;
-    if (f.dataset.id && (!staro || c.nepromjenjivo)) return;
-    if (!dozvoljeno(c, k, staro)) return;
-
-    let v = {};
-    c.polja.forEach((x) => {
-      const raw = (f.elements[x.k].value || '').trim();
-      v[x.k] = x.tip === 'number' ? (raw === '' ? null : Number(raw))
-        : x.tip === 'datetime-local' ? izUnosa(raw) : raw;
-    });
-    if (c.spremi) v = c.spremi(v, staro, p, k);
-    const sada = sadaZaZapis();
-    if (staro) {
-      Object.assign(staro, v, { izmijenio: k.id, izmijenjeno: sada });
-      zabiljezi('izmjena zapisa', p.tag, `${c.naslov}: ${c.tekst(staro, p)}`);
-      obavijest('Izmjena je spremljena.');
-    } else {
-      const novi = { id: noviId(p, lista, c.pref), ...v, upisao: k.id, upisano: sada };
-      lista.push(novi);
-      zabiljezi('novi zapis', p.tag, `${c.naslov}: ${c.tekst(novi, p)}`);
-      obavijest(`Upisano ${datumVrijeme(sada)}.`);
-    }
-    if (c.nakon) c.nakon(p);
-    spremiKliniku(p);
-    uredjivanje = null;
-    render(true);
-  }
-
-  function obrisiZapis(tag, sek, id, k) {
-    const p = pacijent(tag);
-    const c = UNOS[sek];
-    if (!p || !c || c.nepromjenjivo || !smijeMijenjati(k, p)) return;
-    const x = p[c.polje].find((z) => z.id === id);
-    if (!x || !dozvoljeno(c, k, x)) return;
-    if (!confirm(`Obrisati zapis?\n\n${c.tekst(x, p)}\n\nBrisanje se bilježi u zapisniku.`)) return;
-    p[c.polje] = p[c.polje].filter((z) => z.id !== id);
-    if (c.nakon) c.nakon(p);
-    spremiKliniku(p);
-    zabiljezi('obrisan zapis', tag, `${c.naslov}: ${c.tekst(x, p)}`);
-    if (uredjivanje && uredjivanje.id === id) uredjivanje = null;
-    obavijest('Zapis je obrisan.');
-    render(true);
   }
 
   // ---------- ekran: poruka (nepoznata narukvica, zabranjen pristup) ----------
@@ -1066,42 +629,13 @@
     } else if (a === 'otvori') {
       delete pristup[tag];
       idi('p=' + encodeURIComponent(tag));
-    } else if (a === 'uredi-zapis') {
-      uredjivanje = { tag, sekcija: b.dataset.sekcija, id: b.dataset.id };
-      render();
-    } else if (a === 'odustani-uredi') {
-      const id = uredjivanje && uredjivanje.id;
-      uredjivanje = null;
-      render(true);
-      const el = id && document.getElementById('zs-' + id);
-      if (el) el.scrollIntoView({ block: 'center' });
-    } else if (a === 'obrisi-zapis') {
-      obrisiZapis(tag, b.dataset.sekcija, b.dataset.id, k);
-    } else if (a === 'nalaz-pregledan' || a === 'zadatak-gotovo') {
-      const p = pacijent(tag);
-      if (!p || !smijeMijenjati(k, p)) return;
-      const sada = sadaZaZapis();
-      if (a === 'nalaz-pregledan') {
-        const n = p.nalazi.find((x) => x.id === b.dataset.id);
-        if (!n || !ima(k, 'nalazi')) return;
-        Object.assign(n, { pregledao: k.id, pregledano: sada });
-        zabiljezi('pregledan nalaz', tag, `${n.naziv}: ${opisNalaza(n)}`);
-        obavijest(`Nalaz je označen pregledanim (${datumVrijeme(sada)}).`);
-      } else {
-        const z = p.zadaci.find((x) => x.id === b.dataset.id);
-        if (!z || !ima(k, 'zadaci')) return;
-        Object.assign(z, z.gotovo ? { gotovo: false, obavio: null, obavljeno: null } : { gotovo: true, obavio: k.id, obavljeno: sada });
-        zabiljezi(z.gotovo ? 'obavljen zadatak' : 'zadatak vraćen na neobavljeno', tag, z.opis);
-      }
-      spremiKliniku(p);
-      render(true);
     } else if (a === 'potvrdi' || a === 'odpotvrdi') {
       const set = potvrde[tag] || (potvrde[tag] = new Set());
       if (a === 'potvrdi') set.add(b.dataset.id); else set.delete(b.dataset.id);
       render(true);
     } else if (a === 'preuzmi') {
       const p = pacijent(tag);
-      if (!p || !smijeMijenjati(k, p) || !ima(k, 'preuzimanje')) return;
+      if (!p || !vidiPacijenta(k, p)) return;
       const pre = preuzimanja();
       const nacin = (pristup[tag] && pristup[tag].nacin) || 'rucno';
       pre[tag] = { tko: k.id, u: sadaZaZapis(), nacin, potvrdena: [...(potvrde[tag] || [])] };
@@ -1137,8 +671,8 @@
         render();
       }
     } else if (a === 'demo-podaci') {
-      if (confirm('Vratiti početne demo podatke? Brišu se preuzimanja, bilješke, zapisnik i svi upisi, a vi se odjavljujete.')) {
-        ['sesija', 'preuzimanja', 'biljeske', 'zapisnik', 'nakonPrijave', 'klinika', 'idBrojaci']
+      if (confirm('Vratiti početne demo podatke? Brišu se preuzimanja, potvrde, bilješke i zapisnik, a vi se odjavljujete.')) {
+        ['sesija', 'preuzimanja', 'biljeske', 'zapisnik', 'nakonPrijave']
           .forEach((x) => store.remove(x));
         location.hash = '';
         location.reload();
@@ -1178,17 +712,14 @@
       const tag = f.dataset.tag;
       const p = pacijent(tag);
       const k = korisnik();
-      if (!p || !smijeMijenjati(k, p) || !ima(k, 'preuzimanje')) return;
+      if (!p || !vidiPacijenta(k, p)) return;
       const sve = store.get('biljeske', {});
-      (sve[tag] = sve[tag] || []).push({ id: 'bk' + Date.now().toString(36), vrijeme: sadaZaZapis(), autor: k.id, tekst, vrsta: 'krevet' });
+      (sve[tag] = sve[tag] || []).push({ id: 'bk' + Date.now().toString(36), vrijeme: sadaZaZapis(), autor: k.id, tekst, uzKrevet: true });
       store.set('biljeske', sve);
       delete aiSazeci[tag];
       zabiljezi('bilješka uz krevet', tag);
       obavijest('Bilješka je spremljena.');
       render(true);
-    } else if (f.classList.contains('forma-zapis')) {
-      const k = korisnik();
-      if (k) spremiZapis(f, k);
     } else if (f.id === 'forma-rucno') {
       const tag = f.querySelector('#rucni-id').value.trim();
       if (!tag) return;
@@ -1204,7 +735,6 @@
 
   window.addEventListener('hashchange', () => render());
 
-  primijeniIzmjene();
   render();
   provjeriAI();
 })();
