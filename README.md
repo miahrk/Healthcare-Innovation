@@ -10,6 +10,10 @@ Aplikacija je u mapi [`files (1)/primopredaja-nfc/primopredaja-nfc`](files%20(1)
 
 ## Za članove tima
 
+Detaljne upute (pristup, skriveni e-mail, kloniranje, pokretanje, rad s granama, česti problemi): **[UPUTE-ZA-TIM.md](UPUTE-ZA-TIM.md)**.
+
+Ukratko:
+
 ```bash
 git clone https://github.com/miahrk/Healthcare-Innovation.git
 ```
