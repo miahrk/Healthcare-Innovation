@@ -43,44 +43,16 @@
 
   // ---------- uloge i razine pristupa ----------
   // Prava su na jednom mjestu kako bi se lako provjerila i promijenila.
-  const PRAVA_LIJECNIKA = ['terapija', 'vizita', 'nalazi', 'vitali', 'zadaci', 'plan', 'stanje', 'profil', 'preuzimanje', 'prijem'];
   const ROLE = {
-    lijecnik: {
-      naziv: 'Liječnik',
-      opis: 'Propisuje terapiju, piše bilješke iz vizite, vidi, upisuje i pregledava nalaze. Uređuje i briše te zapise.',
-      prava: PRAVA_LIJECNIKA
-    },
-    sestra: {
-      naziv: 'Medicinska sestra / tehničar',
-      opis: 'Bilježi primjenu lijekova, prati vitalne znakove i piše sestrinske bilješke. Uređuje i briše te zapise.',
-      prava: ['primjena', 'vitali', 'sestrinska', 'zadaci', 'profil', 'preuzimanje', 'prijem']
-    },
-    voditelj: {
-      naziv: 'Voditelj odjela',
-      opis: 'Sva prava liječnika na svom odjelu, uz uređivanje rasporeda smjena odjela.',
-      prava: [...PRAVA_LIJECNIKA, 'raspored']
-    },
-    ravnatelj: {
-      naziv: 'Ravnatelj',
-      opis: 'Pregled svih odjela, pacijenata, rasporeda i zapisnika, bez mogućnosti izmjena.',
-      prava: ['sviOdjeli']
-    },
-    admin: {
-      naziv: 'Administrator sustava',
-      opis: 'Upisuje djelatnike, dodjeljuje razine pristupa i odjele, uređuje raspored. Ne vidi pacijente.',
-      prava: ['admin', 'raspored']
-    }
+    lijecnik: { prava: ['terapija', 'vizita', 'nalazi', 'vitali', 'zadaci', 'plan', 'stanje', 'profil', 'preuzimanje', 'prijem'] },
+    sestra: { prava: ['primjena', 'vitali', 'sestrinska', 'zadaci', 'profil', 'preuzimanje', 'prijem'] }
   };
-  const ROLE_ZA_UPIS = ['lijecnik', 'sestra', 'voditelj', 'ravnatelj'];
 
-  const rola = (d) => (d && (d.rola || (d.admin ? 'admin' : d.vrsta === 'sestra' ? 'sestra' : 'lijecnik'))) || null;
+  const rola = (d) => (d && d.rola) || null;
   const ima = (k, pravo) => !!k && (ROLE[rola(k)] || { prava: [] }).prava.includes(pravo);
-  const jeLijecnik = (d) => rola(d) === 'lijecnik' || rola(d) === 'voditelj';
-  const radiNaOdjelu = (d) => ['lijecnik', 'sestra', 'voditelj'].includes(rola(d));
-  // Smije li djelatnik vidjeti pacijenta (ravnatelj vidi sve, ostali samo svoj odjel, admin nikoga)
-  const vidiPacijenta = (k, p) => ima(k, 'sviOdjeli') || (radiNaOdjelu(k) && !!k.odjel && p.odjel === k.odjel);
-  // Smije li mijenjati zapise pacijenta (samo osoblje njegova odjela; konkretno pravo se provjerava posebno)
-  const smijeMijenjati = (k, p) => radiNaOdjelu(k) && !!k.odjel && p.odjel === k.odjel;
+  // Djelatnik vidi i mijenja samo pacijente svog odjela
+  const vidiPacijenta = (k, p) => !!k && !!k.odjel && p.odjel === k.odjel;
+  const smijeMijenjati = vidiPacijenta;
 
   // Trenutno vrijeme za zapise: stvarno vrijeme, ali nikad prije demo-vremena smjene
   function sadaZaZapis() {
@@ -139,17 +111,9 @@
     navike: '', napomena: ''
   });
 
-  // Izmjene napravljene u demou (administracija, novi pacijenti, dopune profila) čuvaju se
+  // Izmjene napravljene u demou (novi pacijenti, dopune profila, upisi) čuvaju se
   // u localStorage-u i primjenjuju na podatke iz data.js pri pokretanju.
   function primijeniIzmjene() {
-    Object.assign(D.odjeli, store.get('odjeli', {}));
-    store.get('noviDjelatnici', []).forEach((d) => { if (!djelatnik(d.id)) D.djelatnici.push(d); });
-    const odjeliDj = store.get('odjeliDjelatnika', {});
-    const roleDj = store.get('roleDjelatnika', {});
-    D.djelatnici.forEach((d) => {
-      if (d.id in odjeliDj) d.odjel = odjeliDj[d.id];
-      if (d.id in roleDj && !d.admin) d.rola = roleDj[d.id];
-    });
     store.get('noviPacijenti', []).forEach((p) => { if (!pacijent(p.tag)) D.pacijenti.push(p); });
     const dodaci = store.get('profilDodaci', {});
     const klinika = store.get('klinika', {});
@@ -260,10 +224,6 @@
     if (r.ime === 'profil') return prikazi(ekranProfil(r, k), zadrziPolozaj);
     if (r.ime === 'unos') return prikazi(ekranUnos(r, k), zadrziPolozaj);
     if (r.ime === 'zapisnik') return prikazi(ekranZapisnik(k));
-    // Administrator upravlja djelatnicima i odjelima, ali ne vidi pacijente.
-    if (k.admin) return prikazi(ekranAdmin(k), zadrziPolozaj);
-    // Ravnatelj vidi sve odjele, ali ništa ne mijenja.
-    if (ima(k, 'sviOdjeli')) return prikazi(ekranBolnica(k), zadrziPolozaj);
     if (r.ime === 'narukvice') return prikazi(ekranNarukvice(k));
     if (r.ime === 'novi-pacijent' && ima(k, 'prijem')) return prikazi(ekranNoviPacijent(k));
     return prikazi(ekranOdjel(k), zadrziPolozaj);
@@ -277,15 +237,12 @@
     return `
       <header class="zaglavlje">
         <div>
-          <p class="odjel">${esc(k.admin ? 'Administracija sustava' : ima(k, 'sviOdjeli') ? 'Uprava bolnice' : (D.odjeli[k.odjel] || 'Bez dodijeljenog odjela'))}</p>
-          <p class="tiho">${esc(k.ime)}, ${esc(k.uloga)} <span class="uloga-oznaka">${esc(ROLE[rola(k)].naziv)}</span></p>
+          <p class="odjel">${esc(D.odjeli[k.odjel])}</p>
+          <p class="tiho">${esc(k.ime)}, ${esc(k.uloga)}</p>
         </div>
         <nav aria-label="Glavni izbornik">
-          ${k.admin
-            ? veza('admin', 'Djelatnici i odjeli')
-            : ima(k, 'sviOdjeli')
-              ? veza('bolnica', 'Odjeli')
-              : veza('odjel', 'Odjel') + veza('narukvice', 'Narukvice')}
+          ${veza('odjel', 'Odjel')}
+          ${veza('narukvice', 'Narukvice')}
           ${veza('zapisnik', 'Zapisnik')}
           <button type="button" class="poveznica" data-akcija="odjava">Odjava</button>
         </nav>
@@ -309,9 +266,8 @@
           <button class="gumb" type="submit">Prijavi se</button>
         </form>
         <p class="demo-napomena">
-          Demo PIN-ovi: 1111 dr. Kovač (voditeljica odjela, predaje smjenu), 2222 dr. Radić (dežurni liječnik),
-          3333 sestra Tomić, 4444 dr. Grgić s kirurgije (za test odbijenog pristupa),
-          1010 ravnatelj (pregled svih odjela), 9999 administratorica (djelatnici, odjeli i raspored).
+          Demo PIN-ovi: 2222 dr. Radić (liječnik, Interna B), 3333 sestra Tomić (Interna B),
+          4444 dr. Grgić s kirurgije (za test odbijenog pristupa).
           Svi podaci u aplikaciji su izmišljeni.
         </p>
       </main>`;
@@ -390,7 +346,10 @@
         </div>
         ${lista.length ? `<ol class="pacijenti">${redovi}</ol>` : '<p class="tiho">Na odjelu nema pacijenata.</p>'}
 
-        <p class="dno"><button type="button" class="poveznica" data-akcija="reset">Nova primopredaja (obriši potvrde i bilješke iz demoa)</button></p>
+        <p class="dno">
+          <button type="button" class="poveznica" data-akcija="reset">Nova primopredaja (obriši preuzimanja, potvrde i bilješke)</button><br>
+          <button type="button" class="poveznica" data-akcija="demo-podaci">Vrati početne demo podatke (obriši sve, i zapisnik)</button>
+        </p>
       </main>`;
   }
 
@@ -406,7 +365,7 @@
     if (!vidiPacijenta(k, p)) {
       if (r.nfc || !pristup['odbijeno-' + p.tag]) {
         pristup['odbijeno-' + p.tag] = true;
-        zabiljezi('odbijen pristup', p.tag, k.admin ? 'administrator nema pristup pacijentima' : `pacijent nije na odjelu ${k.odjel || '(bez odjela)'}`);
+        zabiljezi('odbijen pristup', p.tag, `pacijent nije na odjelu ${k.odjel}`);
         if (r.nfc) history.replaceState(null, '', '#p=' + encodeURIComponent(p.tag));
       }
       return ekranPoruka(k, 'Nemate pristup ovom pacijentu',
@@ -449,9 +408,6 @@
     const info = upoz.filter((u) => u.razina === 'info');
     const brojPotvrdenih = zaPotvrdu.filter((u) => potvrdeno.has(u.id)).length;
     const sveSpremno = brojPotvrdenih === zaPotvrdu.length;
-    // Preuzimanje, potvrde i bilješke uz krevet: samo osoblje odjela (ravnatelj samo gleda)
-    const radi = smijeMijenjati(k, p) && ima(k, 'preuzimanje');
-
     const izvorGumb = (id) =>
       `<button type="button" class="izvor" data-akcija="izvor" data-id="${esc(id)}">izvor ${esc(id)}</button>`;
 
@@ -464,8 +420,7 @@
          <p class="izvori">${ai.izvori.map(izvorGumb).join(' ')}</p>`
       : `<p>${esc(lokalni.tekst)}</p>
          <p class="izvori">${lokalni.izvori.map(izvorGumb).join(' ')}</p>`;
-    const aiGumb = !radi ? ''
-      : aiDostupan
+    const aiGumb = aiDostupan
       ? `<button type="button" class="gumb sporedni mali" data-akcija="ai" data-tag="${esc(p.tag)}">${ai ? 'Ponovno napravi AI sažetak' : 'Napravi AI sažetak'}</button>`
       : `<p class="tiho mali-tekst">Sažetak je složen iz pravila. AI sažetak radi kad je pokrenut lokalni poslužitelj (vidi README).</p>`;
 
@@ -495,7 +450,7 @@
                 <strong>${u.razina === 'kriticno' ? 'Kritično: ' : ''}${esc(u.naslov)}</strong>
                 <p>${esc(u.detalj)} ${izvorGumb(u.izvor)}</p>
               </div>
-              ${pre || !radi ? '' : ok
+              ${pre ? '' : ok
                 ? `<button type="button" class="gumb sporedni mali" data-akcija="odpotvrdi" data-tag="${esc(p.tag)}" data-id="${esc(u.id)}" aria-label="Poništi potvrdu: ${esc(u.naslov)}">Potvrđeno</button>`
                 : `<button type="button" class="gumb mali" data-akcija="potvrdi" data-tag="${esc(p.tag)}" data-id="${esc(u.id)}">Potvrdi</button>`}
             </li>`;
@@ -510,10 +465,8 @@
       ? `<div class="preuzeto">
            <p><strong>Preuzeo/la ${esc(imeDjelatnika(pre.tko))} u ${vr(pre.u)}</strong>,
            ${pre.nacin === 'nfc' ? 'uz skeniranje narukvice' : 'bez skeniranja narukvice'}.</p>
-           ${radi ? `<button type="button" class="poveznica" data-akcija="ponisti" data-tag="${esc(p.tag)}">Poništi preuzimanje</button>` : ''}
+           <button type="button" class="poveznica" data-akcija="ponisti" data-tag="${esc(p.tag)}">Poništi preuzimanje</button>
          </div>`
-      : !radi
-      ? '<p class="tiho">Pacijent još nije preuzet. Pregled je samo za čitanje.</p>'
       : `<button type="button" class="gumb preuzmi" data-akcija="preuzmi" data-tag="${esc(p.tag)}" ${sveSpremno ? '' : 'disabled'}>Preuzmi pacijenta</button>
          ${sveSpremno ? '' : `<p class="tiho mali-tekst">Potvrdite sva upozorenja (${brojPotvrdenih} od ${zaPotvrdu.length}).</p>`}
          ${nacin.nacin === 'rucno' ? '<p class="tiho mali-tekst">Kartica je otvorena ručno. Za potvrdu identiteta skenirajte narukvicu uz krevet.</p>' : ''}`;
@@ -528,10 +481,8 @@
 
     return `
       <header class="kartica-zaglavlje razina-${razina}">
-        ${ima(k, 'sviOdjeli')
-          ? '<a href="#bolnica" class="natrag">Natrag na pregled odjela</a>'
-          : '<a href="#odjel" class="natrag">Natrag na odjel</a>'}
-        <p class="tiho">${ima(k, 'sviOdjeli') ? esc(D.odjeli[p.odjel] || p.odjel) + ', s' : 'S'}oba ${esc(p.soba)}, krevet ${esc(p.krevet)}</p>
+        <a href="#odjel" class="natrag">Natrag na odjel</a>
+        <p class="tiho">Soba ${esc(p.soba)}, krevet ${esc(p.krevet)}</p>
         <h1 data-fokus tabindex="-1">${esc(p.ime)}, ${p.dob}</h1>
         <p>${esc(p.dg)}</p>
         <p class="identitet ${nacin.nacin}">
@@ -583,11 +534,11 @@
               <h2>Provjera i preuzimanje</h2>
               ${upozHtml}
               ${infoHtml}
-              ${radi ? `<form id="forma-biljeska" data-tag="${esc(p.tag)}">
+              <form id="forma-biljeska" data-tag="${esc(p.tag)}">
                 <label for="biljeska">Bilješka uz krevet</label>
                 <textarea id="biljeska" name="biljeska" rows="3" placeholder="Npr. bolesnik pospan, javiti ako se pogorša"></textarea>
                 <button type="submit" class="gumb sporedni mali">Spremi bilješku</button>
-              </form>` : ''}
+              </form>
               <div class="preuzimanje">${preuzimanjeHtml}</div>
             </div>
           </li>
@@ -846,11 +797,11 @@
 
     let forma;
     if (!smije) {
-      forma = `<p class="napomena">${ima(k, 'sviOdjeli') ? 'Pregled je samo za čitanje.' : 'Pacijent nije na vašem odjelu.'}</p>`;
+      forma = '<p class="napomena">Pacijent nije na vašem odjelu.</p>';
     } else if (ured && dozvoljeno(c, k, ured)) {
       forma = formaZapisaHtml(c, sek, p, k, ured);
     } else if (!dozvoljeno(c, k, null)) {
-      forma = `<p class="napomena">Vaša razina pristupa (${esc(ROLE[rola(k)].naziv.toLowerCase())}) ne uključuje upis: ${esc(c.naslov.toLowerCase())}. Zapise možete pregledavati.</p>`;
+      forma = `<p class="napomena">Vaša uloga ne uključuje upis: ${esc(c.naslov.toLowerCase())}. Zapise možete pregledavati.</p>`;
     } else if (c.bezUnosa && c.bezUnosa(p)) {
       forma = `<p class="napomena">${esc(c.bezUnosa(p))}</p>`;
     } else {
@@ -1293,206 +1244,6 @@
     idi('profil=' + encodeURIComponent(tag));
   }
 
-  const osobljeOdjela = (odjel) => D.djelatnici.filter((d) => radiNaOdjelu(d) && d.odjel === odjel);
-
-  // 1 pacijent, 2 pacijenta, 5 pacijenata (21 pacijent, 12 pacijenata)
-  function mnozina(n, jedan, dva, pet = dva) {
-    const z = n % 10, zz = n % 100;
-    const oblik = z === 1 && zz !== 11 ? jedan : z >= 2 && z <= 4 && (zz < 12 || zz > 14) ? dva : pet;
-    return `${n} ${oblik}`;
-  }
-
-  // ---------- ekran: administracija (djelatnici i odjeli) ----------
-  function ekranAdmin(k) {
-    const odjeli = Object.entries(D.odjeli);
-    const osoblje = D.djelatnici.filter((d) => !d.admin)
-      .sort((a, b) => String(a.odjel || '').localeCompare(String(b.odjel || '')) || a.ime.localeCompare(b.ime, 'hr'));
-    const bezOdjela = osoblje.filter((d) => radiNaOdjelu(d) && (!d.odjel || !D.odjeli[d.odjel])).length;
-    const noviIds = store.get('noviDjelatnici', []).map((d) => d.id);
-    const odabirOdjela = (id, odabran, atr = '') => `
-      <select id="${id}" ${atr}>
-        <option value="" ${odabran ? '' : 'selected'}>bez odjela</option>
-        ${odjeli.map(([s, n]) => `<option value="${esc(s)}" ${s === odabran ? 'selected' : ''}>${esc(n)}</option>`).join('')}
-      </select>`;
-    const odabirRole = (id, odabrana, atr = '') => `
-      <select id="${id}" ${atr}>
-        ${ROLE_ZA_UPIS.map((r) => `<option value="${r}" ${r === odabrana ? 'selected' : ''}>${esc(ROLE[r].naziv)}</option>`).join('')}
-      </select>`;
-
-    return `
-      ${zaglavlje(k, 'admin')}
-      <main>
-        <h1 data-fokus tabindex="-1">Djelatnici i odjeli</h1>
-        <p class="tiho">Djelatnik vidi samo pacijente odjela na koji je raspoređen, a što smije upisivati određuje razina pristupa. Promjena vrijedi odmah i bilježi se u zapisniku.</p>
-
-        <section class="admin-sekcija" aria-labelledby="a-novi">
-          <h2 id="a-novi">Upis novog djelatnika</h2>
-          <details class="dodaj">
-            <summary>Dodaj djelatnika</summary>
-            <form id="forma-djelatnik" class="forma" autocomplete="off">
-              <label for="dj-ime">Ime i prezime</label>
-              <input id="dj-ime" name="ime" required placeholder="npr. dr. Iva Horvat">
-              <label for="dj-uloga">Radno mjesto</label>
-              <input id="dj-uloga" name="uloga" required placeholder="npr. specijalist kardiologije, prvostupnica sestrinstva">
-              <div class="dva-stupca">
-                <div>
-                  <label for="dj-rola">Razina pristupa</label>
-                  ${odabirRole('dj-rola', 'lijecnik', 'name="rola" required')}
-                </div>
-                <div>
-                  <label for="dj-odjel">Odjel</label>
-                  ${odabirOdjela('dj-odjel', '', 'name="odjel"')}
-                </div>
-              </div>
-              <label for="dj-pin">PIN za prijavu <span class="tiho">(4 znamenke, predložen je slobodan)</span></label>
-              <input id="dj-pin" name="pin" required inputmode="numeric" pattern="[0-9]{4}" maxlength="4" title="4 znamenke" value="${slobodanPin()}">
-              <p class="greska" id="greska-djelatnik" role="alert"></p>
-              <button type="submit" class="gumb mali">Dodaj djelatnika</button>
-            </form>
-          </details>
-        </section>
-
-        <section class="admin-sekcija" aria-labelledby="a-odjeli">
-          <h2 id="a-odjeli">Odjeli</h2>
-          <ul class="odjeli-lista">
-            ${odjeli.map(([sifra, naziv]) => `
-              <li>
-                <span><strong>${esc(naziv)}</strong> <code>${esc(sifra)}</code></span>
-                <span class="tiho">${mnozina(osobljeOdjela(sifra).length, 'djelatnik', 'djelatnika')}, ${mnozina(D.pacijenti.filter((p) => p.odjel === sifra).length, 'pacijent', 'pacijenta', 'pacijenata')}</span>
-              </li>`).join('')}
-          </ul>
-          <details class="dodaj">
-            <summary>Dodaj novi odjel</summary>
-            <form id="forma-odjel" class="forma" autocomplete="off">
-              <label for="o-naziv">Naziv odjela</label>
-              <input id="o-naziv" name="naziv" required placeholder="npr. Neurologija, odjel A">
-              <label for="o-sifra">Šifra</label>
-              <input id="o-sifra" name="sifra" required pattern="[A-Za-z0-9\\-]{2,10}" title="2 do 10 slova, brojeva ili crtica" placeholder="npr. NEU-A">
-              <p class="greska" id="greska-odjel" role="alert"></p>
-              <button type="submit" class="gumb mali">Dodaj odjel</button>
-            </form>
-          </details>
-        </section>
-
-        <section class="admin-sekcija" aria-labelledby="a-djelatnici">
-          <h2 id="a-djelatnici">Djelatnici, razine pristupa i odjeli</h2>
-          ${bezOdjela ? `<p class="napomena">${bezOdjela} ${bezOdjela === 1 ? 'djelatnik nema' : 'djelatnika nema'} dodijeljen odjel.</p>` : ''}
-          <ul class="djelatnici-lista">
-            ${osoblje.map((d) => `
-              <li>
-                <div class="djelatnik-ime">
-                  <strong>${esc(d.ime)}</strong>
-                  <span class="tiho">${esc(d.uloga)} · PIN ${esc(d.pin)}</span>
-                  ${noviIds.includes(d.id) ? `<button type="button" class="poveznica opasno" data-akcija="ukloni-djelatnika" data-id="${esc(d.id)}">Ukloni djelatnika</button>` : ''}
-                </div>
-                <div class="djelatnik-odabir">
-                  <label for="rola-${esc(d.id)}" class="nevidljivo">Razina pristupa: ${esc(d.ime)}</label>
-                  ${odabirRole(`rola-${esc(d.id)}`, rola(d), `data-promjena="rola-djelatnika" data-id="${esc(d.id)}"`)}
-                  <label for="odj-${esc(d.id)}" class="nevidljivo">Odjel: ${esc(d.ime)}</label>
-                  ${rola(d) === 'ravnatelj'
-                    ? '<p class="tiho mali-tekst">svi odjeli</p>'
-                    : odabirOdjela(`odj-${esc(d.id)}`, d.odjel, `data-promjena="odjel-djelatnika" data-id="${esc(d.id)}"`)}
-                </div>
-              </li>`).join('')}
-          </ul>
-        </section>
-
-        <section class="admin-sekcija" aria-labelledby="a-role">
-          <h2 id="a-role">Razine pristupa</h2>
-          <dl class="role-lista">
-            ${Object.values(ROLE).map((r) => `<div><dt>${esc(r.naziv)}</dt><dd>${esc(r.opis)}</dd></div>`).join('')}
-          </dl>
-          <p class="tiho mali-tekst">Liječnici, sestre i voditelji vide i mijenjaju samo pacijente svog odjela. Svaki upis, izmjena i brisanje bilježi se s imenom, datumom i vremenom.</p>
-        </section>
-
-        <p class="dno"><button type="button" class="poveznica" data-akcija="reset-admin">Vrati početne demo podatke (odjeli, djelatnici, raspored, pacijenti i svi upisi)</button></p>
-      </main>`;
-  }
-
-  function slobodanPin() {
-    let pin;
-    do {
-      pin = String(1000 + (crypto.getRandomValues(new Uint16Array(1))[0] % 9000));
-    } while (D.djelatnici.some((d) => d.pin === pin));
-    return pin;
-  }
-
-  function spremiDjelatnika(f, k) {
-    const v = (ime) => (f.elements[ime].value || '').trim();
-    const greska = document.getElementById('greska-djelatnik');
-    const pin = v('pin');
-    const r = v('rola');
-    if (!ROLE_ZA_UPIS.includes(r)) return;
-    const postoji = D.djelatnici.find((d) => d.pin === pin);
-    if (postoji) {
-      greska.textContent = `PIN ${pin} već koristi ${postoji.ime}. Odaberite drugi.`;
-      f.elements.pin.focus();
-      return;
-    }
-    const najveci = D.djelatnici.reduce((m, d) => Math.max(m, Number(String(d.id).replace(/\D/g, '')) || 0), 0);
-    const d = {
-      id: 'S' + String(najveci + 1).padStart(2, '0'),
-      ime: v('ime'), uloga: v('uloga'), rola: r,
-      odjel: r === 'ravnatelj' ? null : (v('odjel') || null),
-      pin, dodano: sadaZaZapis(), dodao: k.id
-    };
-    D.djelatnici.push(d);
-    store.set('noviDjelatnici', [...store.get('noviDjelatnici', []), d]);
-    zabiljezi('dodan djelatnik', null, `${d.ime}, ${ROLE[r].naziv.toLowerCase()}, ${d.odjel ? D.odjeli[d.odjel] : 'bez odjela'}`);
-    obavijest(`${d.ime} je dodan/a. PIN za prijavu: ${pin}.`);
-    render(true);
-  }
-
-  // ---------- ekran: ravnatelj (pregled svih odjela, samo za čitanje) ----------
-  function ekranBolnica(k) {
-    const pre = preuzimanja();
-    const odjeli = Object.entries(D.odjeli).map(([sifra, naziv]) => {
-      const lista = pacijentiOdjela(sifra);
-      const osoblje = osobljeOdjela(sifra);
-      return {
-        sifra, naziv, lista, osoblje,
-        hitno: lista.filter((x) => x.razina === 2).length,
-        nadzor: lista.filter((x) => x.razina === 1).length,
-        preuzeto: lista.filter((x) => pre[x.p.tag]).length
-      };
-    });
-    const ukupno = odjeli.reduce((s, o) => s + o.lista.length, 0);
-    const hitno = odjeli.reduce((s, o) => s + o.hitno, 0);
-
-    return `
-      ${zaglavlje(k, 'bolnica')}
-      <main>
-        <h1 data-fokus tabindex="-1">Pregled odjela</h1>
-        <p class="tiho">Stanje u ${vr(D.sada)}. Pregled je samo za čitanje; pacijente i zapise mijenja osoblje odjela.</p>
-        <ul class="brojke">
-          <li><strong>${odjeli.length}</strong> ${mnozina(odjeli.length, 'odjel', 'odjela').replace(/^\d+ /, '')}</li>
-          <li><strong>${ukupno}</strong> ${mnozina(ukupno, 'pacijent', 'pacijenta', 'pacijenata').replace(/^\d+ /, '')}</li>
-          <li class="${hitno ? 'kriticno' : ''}"><strong>${hitno}</strong> zahtijeva hitnu pozornost</li>
-        </ul>
-        ${odjeli.map((o) => {
-          const voditelji = o.osoblje.filter((d) => rola(d) === 'voditelj');
-          const lijecnika = o.osoblje.filter(jeLijecnik).length;
-          return `
-            <section class="admin-sekcija" aria-labelledby="b-${esc(o.sifra)}">
-              <h2 id="b-${esc(o.sifra)}">${esc(o.naziv)}</h2>
-              <p class="tiho mali-tekst">Voditelj: ${voditelji.length ? voditelji.map((d) => esc(d.ime)).join(', ') : 'nije određen'} ·
-                ${mnozina(lijecnika, 'liječnik', 'liječnika')}, ${mnozina(o.osoblje.length - lijecnika, 'sestra/tehničar', 'sestre/tehničara', 'sestara/tehničara')}</p>
-              <ul class="brojke mali">
-                <li><strong>${o.lista.length}</strong> pacijenata</li>
-                <li class="${o.hitno ? 'kriticno' : ''}"><strong>${o.hitno}</strong> hitna pozornost</li>
-                <li class="${o.nadzor ? 'upoz' : ''}"><strong>${o.nadzor}</strong> pojačan nadzor</li>
-                <li><strong>${o.preuzeto}/${o.lista.length}</strong> preuzeto u primopredaji</li>
-              </ul>
-              ${o.lista.length ? `
-                <details class="dodaj">
-                  <summary>Pacijenti (${o.lista.length})</summary>
-                  <ol class="pacijenti">${redoviPacijenata(o.lista, pre)}</ol>
-                </details>` : '<p class="tiho">Na odjelu nema pacijenata.</p>'}
-            </section>`;
-        }).join('')}
-      </main>`;
-  }
-
   // ---------- ekran: poruka (nepoznata narukvica, zabranjen pristup) ----------
   function ekranPoruka(k, naslov, tekst) {
     return `
@@ -1718,16 +1469,6 @@
       }
       spremiKliniku(p);
       render(true);
-    } else if (a === 'ukloni-djelatnika') {
-      if (!k || !k.admin) return;
-      const d = djelatnik(b.dataset.id);
-      const novi = store.get('noviDjelatnici', []);
-      if (!d || !novi.some((x) => x.id === d.id)) return;
-      if (!confirm(`Ukloniti djelatnika ${d.ime}? Više se neće moći prijaviti.`)) return;
-      store.set('noviDjelatnici', novi.filter((x) => x.id !== d.id));
-      D.djelatnici.splice(D.djelatnici.indexOf(d), 1);
-      zabiljezi('uklonjen djelatnik', null, d.ime);
-      render(true);
     } else if (a === 'potvrdi' || a === 'odpotvrdi') {
       const set = potvrde[tag] || (potvrde[tag] = new Set());
       if (a === 'potvrdi') set.add(b.dataset.id); else set.delete(b.dataset.id);
@@ -1779,12 +1520,11 @@
       store.set('profilDodaci', dodaci);
       zabiljezi('izmjena profila', tag, `uklonjena stavka: ${SEKCIJE[sek].naslov.toLowerCase()}`);
       render(true);
-    } else if (a === 'reset-admin') {
-      if (!k || !k.admin) return;
-      if (confirm('Vratiti početne demo podatke? Brišu se novi odjeli i djelatnici, promjene odjela i razina pristupa, izmjene rasporeda, novi pacijenti, dopune profila i svi upisi (vitalni znakovi, nalazi, terapija, bilješke).')) {
-        ['odjeli', 'odjeliDjelatnika', 'roleDjelatnika', 'noviDjelatnici', 'raspored', 'noviPacijenti', 'profilDodaci', 'klinika', 'idBrojaci']
+    } else if (a === 'demo-podaci') {
+      if (confirm('Vratiti početne demo podatke? Brišu se preuzimanja, bilješke, zapisnik, novi pacijenti, dopune profila i svi upisi, a vi se odjavljujete.')) {
+        ['sesija', 'preuzimanja', 'biljeske', 'zapisnik', 'nakonPrijave', 'noviPacijenti', 'profilDodaci', 'klinika', 'idBrojaci']
           .forEach((x) => store.remove(x));
-        zabiljezi('vraćeni početni demo podaci');
+        location.hash = '';
         location.reload();
       }
     } else if (a === 'zapisi-tag') {
@@ -1836,9 +1576,6 @@
     } else if (f.classList.contains('forma-zapis')) {
       const k = korisnik();
       if (k) spremiZapis(f, k);
-    } else if (f.id === 'forma-djelatnik') {
-      const k = korisnik();
-      if (k && k.admin) spremiDjelatnika(f, k);
     } else if (f.classList.contains('forma-profil')) {
       const k = korisnik();
       const tag = f.dataset.tag;
@@ -1855,58 +1592,12 @@
       zabiljezi('izmjena profila', tag, `dodano: ${SEKCIJE[sek].naslov.toLowerCase()}`);
       obavijest(sek === 'alergije' ? 'Alergija je zabilježena i provjerava se u terapiji.' : 'Spremljeno u profil.');
       render(true);
-    } else if (f.id === 'forma-odjel') {
-      const k = korisnik();
-      if (!k || !k.admin) return;
-      const sifra = f.sifra.value.trim().toUpperCase();
-      const naziv = f.naziv.value.trim();
-      if (D.odjeli[sifra]) {
-        document.getElementById('greska-odjel').textContent = `Odjel sa šifrom ${sifra} već postoji.`;
-        return;
-      }
-      D.odjeli[sifra] = naziv;
-      store.set('odjeli', { ...store.get('odjeli', {}), [sifra]: naziv });
-      zabiljezi('dodan odjel', null, `${naziv} (${sifra})`);
-      obavijest(`Odjel ${naziv} je dodan.`);
-      render(true);
     } else if (f.id === 'forma-rucno') {
       const tag = f.querySelector('#rucni-id').value.trim();
       if (!tag) return;
       zatvoriSloj();
       delete pristup[tag];
       idi('p=' + encodeURIComponent(tag));
-    }
-  });
-
-  document.addEventListener('change', (e) => {
-    const el = e.target.closest('[data-promjena]');
-    if (!el) return;
-    const k = korisnik();
-    if (!k) return;
-    const vrsta = el.dataset.promjena;
-
-    if (vrsta === 'rola-djelatnika') {
-      const d = djelatnik(el.dataset.id);
-      if (!k.admin || !d || d.admin || !ROLE_ZA_UPIS.includes(el.value)) return;
-      const staro = rola(d);
-      d.rola = el.value;
-      if (d.rola === 'ravnatelj') {
-        d.odjel = null;
-        store.set('odjeliDjelatnika', { ...store.get('odjeliDjelatnika', {}), [d.id]: null });
-      }
-      store.set('roleDjelatnika', { ...store.get('roleDjelatnika', {}), [d.id]: d.rola });
-      zabiljezi('promjena razine pristupa', null, `${d.ime}: ${ROLE[staro].naziv} → ${ROLE[d.rola].naziv}`);
-      obavijest(`${d.ime}: ${ROLE[d.rola].naziv.toLowerCase()}.`);
-      render(true);
-    } else if (vrsta === 'odjel-djelatnika') {
-      const d = djelatnik(el.dataset.id);
-      if (!k.admin || !d || d.admin) return;
-      const staro = d.odjel;
-      d.odjel = el.value || null;
-      store.set('odjeliDjelatnika', { ...store.get('odjeliDjelatnika', {}), [d.id]: d.odjel });
-      zabiljezi('promjena odjela', null, `${d.ime}: ${staro || 'bez odjela'} → ${d.odjel || 'bez odjela'}`);
-      obavijest(`${d.ime}: ${d.odjel ? D.odjeli[d.odjel] : 'bez odjela'}.`);
-      render(true);
     }
   });
 

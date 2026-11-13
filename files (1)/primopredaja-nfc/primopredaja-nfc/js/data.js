@@ -41,16 +41,9 @@
     },
 
     // PIN-ovi su samo za demo. U stvarnom sustavu prijava ide preko bolničkog sustava ili službene kartice.
-    // rola određuje razinu pristupa (vidi ROLE u app.js):
-    //   lijecnik  - propisuje terapiju, piše bilješke iz vizite, vidi i upisuje nalaze
-    //   sestra    - primjena lijekova, vitalni znakovi, sestrinske bilješke (i medicinski tehničari)
-    //   voditelj  - sve što i liječnik, plus raspored smjena svog odjela
-    //   ravnatelj - pregled svih odjela, bez izmjena
-    //   admin     - djelatnici i odjeli, ne vidi pacijente
+    // dr. Kovač nema PIN: predala je dnevnu smjenu i u demou je samo autorica postojećih zapisa.
     djelatnici: [
-      { id: 'S00', ime: 'Sanja Lovrić', uloga: 'administratorica sustava', odjel: null, pin: '9999', rola: 'admin', admin: true },
-      { id: 'S13', ime: 'dr. Zdravko Ravlić', uloga: 'ravnatelj bolnice', odjel: null, pin: '1010', rola: 'ravnatelj' },
-      { id: 'S01', ime: 'dr. Ana Kovač', uloga: 'voditeljica odjela', odjel: 'INT-B', pin: '1111', rola: 'voditelj' },
+      { id: 'S01', ime: 'dr. Ana Kovač', uloga: 'odjelna liječnica', odjel: 'INT-B', rola: 'lijecnik' },
       { id: 'S02', ime: 'dr. Luka Radić', uloga: 'dežurni liječnik', odjel: 'INT-B', pin: '2222', rola: 'lijecnik' },
       { id: 'S03', ime: 'Ivana Tomić', uloga: 'medicinska sestra', odjel: 'INT-B', pin: '3333', rola: 'sestra' },
       { id: 'S04', ime: 'dr. Marko Grgić', uloga: 'kirurg', odjel: 'KIR-A', pin: '4444', rola: 'lijecnik' }
