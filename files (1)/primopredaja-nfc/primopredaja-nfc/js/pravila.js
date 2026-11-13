@@ -82,17 +82,19 @@
     });
 
     // 2. Promjena terapije u zadnjih 12 h koja nije spomenuta ni u jednoj kasnijoj bilješci
+    // (promjenaU je vrijeme izmjene doze; za novi lijek promjena vrijedi od početka primjene)
+    const kadaPromjena = (x) => ms(x.promjenaU || x.od);
     p.terapija
-      .filter((x) => x.promjena && now - ms(x.od) < 12 * SAT)
+      .filter((x) => x.promjena && now - kadaPromjena(x) < 12 * SAT)
       .forEach((x) => {
         const spomenuto = biljeske.some((b) =>
-          ms(b.vrijeme) >= ms(x.od) && b.tekst.toLowerCase().includes(x.lijek.toLowerCase()));
+          ms(b.vrijeme) >= kadaPromjena(x) && b.tekst.toLowerCase().includes(x.lijek.toLowerCase()));
         if (!spomenuto) {
           out.push({
             id: 'u-' + x.id,
             razina: 'upozorenje',
             naslov: 'Promjena terapije nije spomenuta u bilješkama',
-            detalj: `${x.lijek} ${x.doza}: ${x.promjena} u ${vrijeme(x.od)}`,
+            detalj: `${x.lijek} ${x.doza}: ${x.promjena} u ${vrijeme(x.promjenaU || x.od)}`,
             izvor: x.id
           });
         }
@@ -189,8 +191,13 @@
       id: x.id, vrsta: 'Vitalni znakovi', vrijeme: x.vrijeme,
       tekst: `FP ${x.fp}/min, RR ${x.sys}/${x.dia} mmHg, SpO2 ${x.spo2} %, T ${broj(x.temp)} °C, FD ${x.fd}/min`
     }));
+    (p.primjene || []).forEach((x) => lista.push({
+      id: x.id, vrsta: 'Primjena lijeka', vrijeme: x.vrijeme,
+      tekst: `${x.lijek}${x.doza ? ' ' + x.doza : ''}: ${x.status || 'primijenjeno'}${x.napomena ? ', ' + x.napomena : ''} (${imeDjelatnika(x.upisao)})`
+    }));
+    const VRSTE_BILJESKI = { vizita: 'Bilješka iz vizite', sestrinska: 'Sestrinska bilješka', krevet: 'Bilješka uz krevet' };
     [...p.biljeske, ...dodatneBiljeske].forEach((x) => lista.push({
-      id: x.id, vrsta: 'Bilješka', vrijeme: x.vrijeme,
+      id: x.id, vrsta: VRSTE_BILJESKI[x.vrsta] || 'Bilješka', vrijeme: x.vrijeme,
       tekst: `${x.tekst} (${imeDjelatnika(x.autor)})`
     }));
     p.zadaci.forEach((x) => lista.push({

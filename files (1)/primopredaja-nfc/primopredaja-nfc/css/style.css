@@ -441,3 +441,62 @@ label[for="raspored-odjel"] { font-weight: 700; }
 .smjena-upoz li::before { content: '! '; }
 .smjena select { min-height: 2.5rem; font-size: 0.9rem; }
 .legenda { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* ---------- uloge ---------- */
+.uloga-oznaka {
+  display: inline-block; font-size: 0.78rem; font-weight: 700; color: var(--tinta);
+  padding: 0 0.45rem; border: 1px solid var(--crta); border-radius: 99px; margin-left: 0.25rem;
+}
+.role-lista { margin: 0; display: grid; gap: 0.6rem; }
+.role-lista > div { display: grid; grid-template-columns: 13rem 1fr; gap: 0.75rem; }
+.role-lista dt { font-weight: 700; }
+.role-lista dd { margin: 0; }
+@media (max-width: 30rem) { .role-lista > div { grid-template-columns: 1fr; gap: 0; } }
+
+.djelatnici-lista li { grid-template-columns: 1fr minmax(14rem, 18rem); }
+.djelatnik-ime { display: grid; }
+.djelatnik-ime .poveznica { justify-self: start; font-size: 0.85rem; }
+.djelatnik-odabir { display: grid; gap: 0.35rem; }
+.poveznica.opasno { color: var(--kriticno); }
+
+/* ---------- upis podataka ---------- */
+.unos-nav { margin-top: 0.75rem; }
+.unos-nav p { margin: 0 0 0.25rem; }
+.unos-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.unos-nav a {
+  display: inline-block; padding: 0.3rem 0.7rem; border: 1px solid var(--crta); border-radius: 99px;
+  background: var(--povrsina); text-decoration: none; font-size: 0.92rem;
+}
+.unos-nav a[aria-current] { background: var(--akcija); color: var(--akcija-tekst); border-color: var(--akcija); font-weight: 700; }
+
+.unos-forma { margin: 1.25rem 0; }
+.forma-zapis {
+  padding: 1rem; background: var(--povrsina); border: 1px solid var(--crta); border-radius: 0.75rem;
+}
+.forma-zapis.uredjivanje { border: 2px solid var(--fokus); }
+.forma-zapis h2 { margin-bottom: 0.25rem; }
+.polja-mreza { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 0.25rem 1rem; }
+.polje { display: grid; gap: 0.3rem; align-content: start; }
+.polje.siroko { grid-column: 1 / -1; }
+
+.zapis-lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--crta); }
+.zapis-stavka { padding: 0.75rem 0.4rem; border-bottom: 1px solid var(--crta); border-radius: 0.25rem; }
+.zapis-stavka.istaknuto { outline: 3px solid var(--fokus); background: var(--povrsina); }
+.zapis-glava { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; }
+.zapis-vrijeme { font-weight: 700; font-variant-numeric: tabular-nums; }
+.zapis-tekst { margin: 0.25rem 0; }
+.meta { font-size: 0.85rem; color: var(--tiho); margin: 0; }
+.zapis-gumbi { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin-top: 0.5rem; }
+
+.tijek li { font-size: 0.95rem; }
+
+/* ---------- ravnatelj ---------- */
+.brojke { list-style: none; margin: 1rem 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.brojke li {
+  padding: 0.5rem 0.85rem; background: var(--povrsina); border: 1px solid var(--crta); border-radius: 0.5rem;
+}
+.brojke strong { font-size: 1.25rem; margin-right: 0.25rem; font-variant-numeric: tabular-nums; }
+.brojke.mali { margin: 0.5rem 0; }
+.brojke.mali strong { font-size: 1.05rem; }
+.brojke li.kriticno { background: var(--kriticno-poz); color: var(--kriticno); border-color: transparent; }
+.brojke li.upoz { background: var(--upoz-poz); color: var(--upoz); border-color: transparent; }
