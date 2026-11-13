@@ -320,22 +320,9 @@ td:first-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
   border: 2px solid var(--crta); border-radius: 0.5rem; background: var(--povrsina);
 }
 .forma input:invalid:not(:placeholder-shown):not(:focus) { border-color: var(--upoz); }
-.forma fieldset {
-  border: 1px solid var(--crta); border-radius: 0.75rem;
-  margin: 1rem 0 0; padding: 0.5rem 1rem 1rem; display: grid; gap: 0.4rem; min-width: 0;
-}
-.forma legend { font-weight: 700; font-size: 1.125rem; padding: 0 0.35rem; }
-.dva-stupca { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
-.dva-stupca > div { display: grid; gap: 0.4rem; align-content: start; }
-@media (max-width: 30rem) { .dva-stupca { grid-template-columns: 1fr; } }
 .gumbi-red { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem; }
 .forma .gumb { justify-self: start; margin-top: 0.5rem; }
 
-.traka-alata {
-  display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;
-  margin-top: 1.5rem;
-}
-.traka-alata h2 { margin: 0; }
 details.dodaj { margin-top: 0.6rem; }
 details.dodaj summary { cursor: pointer; font-weight: 700; color: var(--tiho); padding: 0.35rem 0; }
 details.dodaj[open] summary { color: var(--tinta); }

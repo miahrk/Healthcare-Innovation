@@ -44,8 +44,8 @@
   // ---------- uloge i razine pristupa ----------
   // Prava su na jednom mjestu kako bi se lako provjerila i promijenila.
   const ROLE = {
-    lijecnik: { prava: ['terapija', 'vizita', 'nalazi', 'vitali', 'zadaci', 'plan', 'stanje', 'profil', 'preuzimanje', 'prijem'] },
-    sestra: { prava: ['primjena', 'vitali', 'sestrinska', 'zadaci', 'profil', 'preuzimanje', 'prijem'] }
+    lijecnik: { prava: ['terapija', 'vizita', 'nalazi', 'vitali', 'zadaci', 'plan', 'stanje', 'profil', 'preuzimanje'] },
+    sestra: { prava: ['primjena', 'vitali', 'sestrinska', 'zadaci', 'profil', 'preuzimanje'] }
   };
 
   const rola = (d) => (d && d.rola) || null;
@@ -98,23 +98,15 @@
   }
   const izUnosa = (v) => (v ? new Date(v).toISOString() : null);
 
-  function dobIz(datumRodenja) {
-    const s = new Date(D.sada);
-    const [y, m, d] = datumRodenja.split('-').map(Number);
-    const prosao = s.getMonth() + 1 > m || (s.getMonth() + 1 === m && s.getDate() >= d);
-    return s.getFullYear() - y - (prosao ? 0 : 1);
-  }
-
   const prazanProfil = () => ({
     datumRodenja: '', mbo: '', krvnaGrupa: '', mjesto: '', prijem: null, kontakt: {},
     alergije: [], bolesti: [], kucnaTerapija: [], hospitalizacije: [], pregledi: [], operacije: [],
     navike: '', napomena: ''
   });
 
-  // Izmjene napravljene u demou (novi pacijenti, dopune profila, upisi) čuvaju se
+  // Izmjene napravljene u demou (dopune profila, upisi) čuvaju se
   // u localStorage-u i primjenjuju na podatke iz data.js pri pokretanju.
   function primijeniIzmjene() {
-    store.get('noviPacijenti', []).forEach((p) => { if (!pacijent(p.tag)) D.pacijenti.push(p); });
     const dodaci = store.get('profilDodaci', {});
     const klinika = store.get('klinika', {});
     D.pacijenti.forEach((p) => {
@@ -159,7 +151,7 @@
       p.stanjePovijest = [{
         id: 's1', stanje: p.stanje,
         upisano: prijem ? (/^\d{4}-\d{2}-\d{2}$/.test(prijem) ? new Date(prijem + 'T08:00').toISOString() : prijem) : pocetak,
-        upisao: p.dodao || null, napomena: 'stanje pri prijemu'
+        upisao: null, napomena: 'stanje pri prijemu'
       }];
     }
   }
@@ -225,7 +217,6 @@
     if (r.ime === 'unos') return prikazi(ekranUnos(r, k), zadrziPolozaj);
     if (r.ime === 'zapisnik') return prikazi(ekranZapisnik(k));
     if (r.ime === 'narukvice') return prikazi(ekranNarukvice(k));
-    if (r.ime === 'novi-pacijent' && ima(k, 'prijem')) return prikazi(ekranNoviPacijent(k));
     return prikazi(ekranOdjel(k), zadrziPolozaj);
   }
 
@@ -340,10 +331,6 @@
           <p class="tiho mali-tekst">Kraj smjene u ${vr(D.smjena.do)}. Poredano po hitnosti.</p>
         </section>
 
-        <div class="traka-alata">
-          <h2>Pacijenti na odjelu</h2>
-          ${ima(k, 'prijem') ? '<a class="gumb sporedni mali" href="#novi-pacijent">+ Novi pacijent</a>' : ''}
-        </div>
         ${lista.length ? `<ol class="pacijenti">${redovi}</ol>` : '<p class="tiho">Na odjelu nema pacijenata.</p>'}
 
         <p class="dno">
@@ -1115,135 +1102,6 @@
       </main>`;
   }
 
-  // ---------- ekran: novi pacijent ----------
-  const KRVNE_GRUPE = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', '0+', '0-'];
-
-  function ekranNoviPacijent(k) {
-    const danas = kljucDatuma(new Date(D.sada));
-    const polje = (id, oznaka, unos, obavezno) =>
-      `<label for="${id}">${oznaka}${obavezno ? '' : ' <span class="tiho">(neobavezno)</span>'}</label>${unos}`;
-    return `
-      ${zaglavlje(k, '')}
-      <main>
-        <a href="#odjel" class="natrag">Natrag na odjel</a>
-        <h1 data-fokus tabindex="-1">Novi pacijent</h1>
-        <p class="tiho">Pacijent se prima na odjel ${esc(D.odjeli[k.odjel])}. Nakon spremanja dobiva anonimni ID koji zapišete na NFC narukvicu.</p>
-
-        <form id="forma-novi" class="forma" autocomplete="off">
-          <fieldset>
-            <legend>Osobni podaci</legend>
-            ${polje('n-ime', 'Ime i prezime', '<input id="n-ime" name="ime" required>', true)}
-            <div class="dva-stupca">
-              <div>${polje('n-rod', 'Datum rođenja', `<input id="n-rod" name="datumRodenja" type="date" max="${danas}" required>`, true)}</div>
-              <div>${polje('n-spol', 'Spol', '<select id="n-spol" name="spol" required><option value="">odaberite</option><option value="Ž">žensko</option><option value="M">muško</option></select>', true)}</div>
-            </div>
-            <div class="dva-stupca">
-              <div>${polje('n-mbo', 'MBO', '<input id="n-mbo" name="mbo" inputmode="numeric" pattern="[0-9]{9}" title="9 znamenki">')}</div>
-              <div>${polje('n-krv', 'Krvna grupa', `<select id="n-krv" name="krvnaGrupa"><option value="">nije poznato</option>${KRVNE_GRUPE.map((g) => `<option>${g}</option>`).join('')}</select>`)}</div>
-            </div>
-            ${polje('n-mjesto', 'Prebivalište', '<input id="n-mjesto" name="mjesto">')}
-          </fieldset>
-
-          <fieldset>
-            <legend>Prijem i smještaj</legend>
-            <div class="dva-stupca">
-              <div>${polje('n-soba', 'Soba', '<input id="n-soba" name="soba" required>', true)}</div>
-              <div>${polje('n-krevet', 'Krevet', '<input id="n-krevet" name="krevet" required>', true)}</div>
-            </div>
-            ${polje('n-dg', 'Uputna dijagnoza', '<input id="n-dg" name="dg" required>', true)}
-            <div class="dva-stupca">
-              <div>${polje('n-prijem', 'Datum prijema', `<input id="n-prijem" name="prijem" type="date" value="${danas}" max="${danas}" required>`, true)}</div>
-              <div>${polje('n-stanje', 'Stanje', '<select id="n-stanje" name="stanje"><option value="stabilan">stabilan</option><option value="nadzor">pojačan nadzor</option><option value="nestabilan">nestabilan</option></select>', true)}</div>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Medicinska povijest</legend>
-            <p class="tiho mali-tekst">Jedna stavka po retku. Detalj odvojite crticom, npr. „Penicilin - urtikarija“.</p>
-            ${polje('n-alergije', 'Alergije', '<textarea id="n-alergije" name="alergije" rows="2" placeholder="Penicilin - urtikarija"></textarea>')}
-            ${polje('n-bolesti', 'Bolesti i kronična stanja', '<textarea id="n-bolesti" name="bolesti" rows="3" placeholder="Arterijska hipertenzija - 2015"></textarea>')}
-            ${polje('n-terapija', 'Kućna terapija', '<textarea id="n-terapija" name="kucnaTerapija" rows="3" placeholder="Metformin - 1000 mg p.o. 2x dnevno"></textarea>')}
-            ${polje('n-operacije', 'Operacije i zahvati', '<textarea id="n-operacije" name="operacije" rows="2" placeholder="2012 - Apendektomija"></textarea>')}
-            ${polje('n-navike', 'Navike (pušenje, alkohol)', '<input id="n-navike" name="navike">')}
-            ${polje('n-napomena', 'Napomena', '<textarea id="n-napomena" name="napomena" rows="2" placeholder="npr. nagluh, pokretan uz pomagalo"></textarea>')}
-          </fieldset>
-
-          <fieldset>
-            <legend>Kontakt osoba</legend>
-            ${polje('n-k-ime', 'Ime i prezime', '<input id="n-k-ime" name="kontaktIme">')}
-            <div class="dva-stupca">
-              <div>${polje('n-k-odnos', 'Odnos s pacijentom', '<input id="n-k-odnos" name="kontaktOdnos" placeholder="npr. kći">')}</div>
-              <div>${polje('n-k-tel', 'Telefon', '<input id="n-k-tel" name="kontaktTelefon" type="tel">')}</div>
-            </div>
-          </fieldset>
-
-          <p class="greska" id="greska-novi" role="alert"></p>
-          <div class="gumbi-red">
-            <button type="submit" class="gumb">Spremi pacijenta</button>
-            <a href="#odjel" class="gumb sporedni">Odustani</a>
-          </div>
-        </form>
-      </main>`;
-  }
-
-  // "Penicilin - urtikarija" -> ['Penicilin', 'urtikarija']
-  function podijeliRedak(redak) {
-    const dijelovi = redak.split(/\s+[-–]\s+|:\s+/);
-    return [dijelovi[0].trim(), dijelovi.slice(1).join(' - ').trim()];
-  }
-
-  function noviTag() {
-    const znakovi = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let tag;
-    do {
-      tag = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => znakovi[b % 36]).join('');
-    } while (pacijent(tag));
-    return tag;
-  }
-
-  function spremiNovogPacijenta(f, k) {
-    const v = (ime) => (f.elements[ime].value || '').trim();
-    const greska = document.getElementById('greska-novi');
-    const soba = v('soba');
-    const krevet = v('krevet');
-    const zauzet = D.pacijenti.find((p) => p.odjel === k.odjel && p.soba === soba && p.krevet === krevet);
-    if (zauzet) {
-      greska.textContent = `Krevet ${soba}/${krevet} je zauzet (${zauzet.ime}).`;
-      f.elements.krevet.focus();
-      return;
-    }
-    const retci = (ime) => v(ime).split('\n').map((x) => x.trim()).filter(Boolean);
-    const id = (pref, i) => `${pref}${i + 1}`;
-    const tag = noviTag();
-    const p = {
-      tag, odjel: k.odjel, soba, krevet,
-      ime: v('ime'), dob: dobIz(v('datumRodenja')), spol: v('spol'),
-      dg: v('dg'), stanje: v('stanje') || 'stabilan',
-      profil: Object.assign(prazanProfil(), {
-        datumRodenja: v('datumRodenja'), mbo: v('mbo'), krvnaGrupa: v('krvnaGrupa'), mjesto: v('mjesto'),
-        prijem: v('prijem'),
-        kontakt: { ime: v('kontaktIme'), odnos: v('kontaktOdnos'), telefon: v('kontaktTelefon') },
-        alergije: retci('alergije').map((r, i) => { const [tvar, reakcija] = podijeliRedak(r); return { id: id('al', i), tvar, reakcija, tezina: '' }; }),
-        bolesti: retci('bolesti').map((r, i) => { const [naziv, od] = podijeliRedak(r); return { id: id('bo', i), naziv, od }; }),
-        kucnaTerapija: retci('kucnaTerapija').map((r, i) => { const [lijek, doza] = podijeliRedak(r); return { id: id('kt', i), lijek, doza }; }),
-        operacije: retci('operacije').map((r, i) => {
-          const [a, b] = podijeliRedak(r);
-          return /^\d{4}\.?$/.test(a) && b ? { id: id('op', i), godina: a.replace('.', ''), naziv: b } : { id: id('op', i), godina: '', naziv: r };
-        }),
-        navike: v('navike'), napomena: v('napomena')
-      }),
-      terapija: [], primjene: [], nalazi: [], vitali: [], biljeske: [], zadaci: [], akoOnda: [],
-      stanjePovijest: [{ id: 's1', stanje: v('stanje') || 'stabilan', upisano: sadaZaZapis(), upisao: k.id, napomena: 'stanje pri prijemu' }],
-      dodao: k.id
-    };
-    D.pacijenti.push(p);
-    store.set('noviPacijenti', [...store.get('noviPacijenti', []), p]);
-    zabiljezi('primljen novi pacijent', tag, `soba ${soba}, krevet ${krevet}`);
-    normalizirajZapise(p);
-    obavijest(`Pacijent ${p.ime} je dodan. Zapišite ID ${tag} na narukvicu.`);
-    idi('profil=' + encodeURIComponent(tag));
-  }
-
   // ---------- ekran: poruka (nepoznata narukvica, zabranjen pristup) ----------
   function ekranPoruka(k, naslov, tekst) {
     return `
@@ -1521,8 +1379,8 @@
       zabiljezi('izmjena profila', tag, `uklonjena stavka: ${SEKCIJE[sek].naslov.toLowerCase()}`);
       render(true);
     } else if (a === 'demo-podaci') {
-      if (confirm('Vratiti početne demo podatke? Brišu se preuzimanja, bilješke, zapisnik, novi pacijenti, dopune profila i svi upisi, a vi se odjavljujete.')) {
-        ['sesija', 'preuzimanja', 'biljeske', 'zapisnik', 'nakonPrijave', 'noviPacijenti', 'profilDodaci', 'klinika', 'idBrojaci']
+      if (confirm('Vratiti početne demo podatke? Brišu se preuzimanja, bilješke, zapisnik, dopune profila i svi upisi, a vi se odjavljujete.')) {
+        ['sesija', 'preuzimanja', 'biljeske', 'zapisnik', 'nakonPrijave', 'profilDodaci', 'klinika', 'idBrojaci']
           .forEach((x) => store.remove(x));
         location.hash = '';
         location.reload();
@@ -1570,9 +1428,6 @@
       zabiljezi('bilješka uz krevet', tag);
       obavijest('Bilješka je spremljena.');
       render(true);
-    } else if (f.id === 'forma-novi') {
-      const k = korisnik();
-      if (k && k.odjel && ima(k, 'prijem')) spremiNovogPacijenta(f, k);
     } else if (f.classList.contains('forma-zapis')) {
       const k = korisnik();
       if (k) spremiZapis(f, k);
