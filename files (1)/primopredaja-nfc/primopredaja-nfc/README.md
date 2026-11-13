@@ -78,6 +78,19 @@ Za NFC i AI zajedno na mobitelu lokalni poslužitelj mora biti dostupan preko HT
 | 2222 | dr. Luka Radić, dežurni liječnik | Interna B |
 | 3333 | Ivana Tomić, medicinska sestra | Interna B |
 | 4444 | dr. Marko Grgić, kirurg | Kirurgija A (za test odbijenog pristupa) |
+| 9999 | Sanja Lovrić, administratorica sustava | bez odjela, ne vidi pacijente |
+
+Ostali djelatnici (za raspored smjena) imaju PIN-ove 5555, 6666, 7777, 8888, 1212, 1313, 1414 i 1515 (vidi `js/data.js`).
+
+## Profil pacijenta, novi pacijent, administracija, raspored
+
+- **Profil pacijenta** (poveznica na kartici): osnovni podaci, kontakt osoba, trenutna hospitalizacija, alergije, bolesti, kućna terapija, prethodne hospitalizacije, pregledi i operacije. Svaka sekcija se može dopuniti; ukloniti se mogu samo stavke dodane u demou, izvorni zapisi ne.
+- **Alergije** se prikazuju na vrhu kartice. Ako je u terapiji lijek na koji je zabilježena alergija, kartica pokazuje kritično upozorenje (npr. dodajte Mariji Šimić alergiju na „Ceftriakson“).
+- **Novi pacijent** (gumb na ekranu odjela): obrazac s osobnim podacima, smještajem i medicinskom poviješću. Sustav provjerava je li krevet slobodan i dodjeljuje anonimni ID za narukvicu.
+- **Administracija** (PIN 9999): dodavanje odjela i raspoređivanje djelatnika po odjelima. Djelatnik odmah vidi samo pacijente novog odjela.
+- **Raspored smjena** (dnevna 07–19, noćna 19–07): tjedni pregled po odjelu. Djelatnici vide raspored svog odjela i svoje smjene, administrator dodaje i uklanja djelatnike. Sustav upozorava na smjenu bez liječnika ili sestre, na dnevnu i noćnu zaredom te na dnevnu odmah nakon noćne. Zadani raspored je rotacija dnevna, noćna, slobodan dan.
+
+Sve izmjene se spremaju u `localStorage`; gumb na dnu administracije vraća početne demo podatke.
 
 Vrijeme demo smjene je fiksno: danas u 18:55, pet minuta prije kraja dnevne smjene.
 

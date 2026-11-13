@@ -62,6 +62,25 @@
       }
     });
 
+    // 1b. Lijek u terapiji na koji je zabilježena alergija (jednostavna usporedba naziva)
+    const alergije = (p.profil && p.profil.alergije) || [];
+    p.terapija.forEach((x) => {
+      const lijek = x.lijek.toLowerCase();
+      const al = alergije.find((a) => {
+        const tvar = a.tvar.toLowerCase().trim();
+        return tvar.length >= 3 && (lijek.includes(tvar) || tvar.includes(lijek));
+      });
+      if (al) {
+        out.push({
+          id: 'u-al-' + x.id,
+          razina: 'kriticno',
+          naslov: `Alergija na lijek u terapiji: ${x.lijek}`,
+          detalj: `Zabilježena alergija na ${al.tvar}${al.reakcija ? ` (${al.reakcija})` : ''}`,
+          izvor: x.id
+        });
+      }
+    });
+
     // 2. Promjena terapije u zadnjih 12 h koja nije spomenuta ni u jednoj kasnijoj bilješci
     p.terapija
       .filter((x) => x.promjena && now - ms(x.od) < 12 * SAT)
