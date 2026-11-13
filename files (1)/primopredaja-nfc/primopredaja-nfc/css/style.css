@@ -294,6 +294,15 @@ textarea, #forma-rucno input {
 .zapisi li.istaknuto { outline: 3px solid var(--fokus); background: var(--povrsina); }
 .zapis-id { color: var(--tiho); font-variant-numeric: tabular-nums; }
 
+/* pristupi zapisu (iz zapisnika) */
+.pristupi { margin-top: 0.5rem; }
+.pristupi-lista { list-style: none; margin: 0; padding: 0; }
+.pristupi-lista li {
+  display: grid; grid-template-columns: 7.5rem 1fr; gap: 0.5rem;
+  padding: 0.45rem 0.4rem; border-bottom: 1px solid var(--crta); font-size: 0.92rem;
+}
+.pristup-vrijeme { color: var(--tiho); font-variant-numeric: tabular-nums; }
+
 /* ---------- poruke, zapisnik, narukvice ---------- */
 .poruka { padding-top: 2rem; }
 .poruka h1:focus { outline: none; }

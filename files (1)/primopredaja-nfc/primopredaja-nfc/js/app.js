@@ -259,7 +259,7 @@
     if (!vidiPacijenta(k, p)) {
       if (r.nfc || !pristup['odbijeno-' + p.tag]) {
         pristup['odbijeno-' + p.tag] = true;
-        zabiljezi('odbijen pristup', p.tag, `pacijent nije na odjelu ${k.odjel}${r.sim ? ', ' + SIM_DETALJ : ''}`);
+        zabiljezi('odbijen pristup', p.tag, `pacijent nije na odjelu djelatnika (${k.odjel})${r.sim ? ', ' + SIM_DETALJ : ''}`);
         if (r.nfc) history.replaceState(null, '', '#p=' + encodeURIComponent(p.tag));
       }
       return ekranPoruka(k, 'Nemate pristup ovom pacijentu',
@@ -337,6 +337,26 @@
           ${blok('Otvoreni zadaci', zadaciHtml)}
         </div>
       </section>`;
+  }
+
+  // Tko je i kada pristupao zapisu ovog pacijenta (iz zapisnika), najnovije prvo
+  const PRISTUPI_NA_KARTICI = 10;
+  function pristupiZapisuHtml(p) {
+    const svi = store.get('zapisnik', []).filter((z) => z.tag === p.tag);
+    if (!svi.length) return '';
+    const ime = (z) => esc(z.tko ? imeDjelatnika(z.tko) : 'nepoznato');
+    const redovi = svi.slice(0, PRISTUPI_NA_KARTICI).map((z) => `
+      <li>
+        <span class="pristup-vrijeme">${P.vrijemeDatum(z.u)}</span>
+        <span><strong>${ime(z)}</strong>: ${esc(z.akcija)}${z.detalj ? `, <span class="tiho">${esc(z.detalj)}</span>` : ''}</span>
+      </li>`).join('');
+    return `
+      <details class="izvorni pristupi" id="pristupi">
+        <summary>Pristupi zapisu (${svi.length}), zadnji: ${ime(svi[0])} u ${P.vrijemeDatum(svi[0].u)}</summary>
+        <ol class="pristupi-lista">${redovi}</ol>
+        ${svi.length > PRISTUPI_NA_KARTICI ? `<p class="tiho mali-tekst">Prikazano zadnjih ${PRISTUPI_NA_KARTICI}.</p>` : ''}
+        <p class="mali-tekst"><a href="#zapisnik">Cijeli zapisnik pristupa</a></p>
+      </details>`;
   }
 
   function ekranKartica(r, k) {
@@ -429,6 +449,7 @@
          ${nacin.nacin === 'rucno' ? '<p class="tiho mali-tekst">Kartica je otvorena ručno. Za potvrdu identiteta skenirajte narukvicu uz krevet.</p>' : ''}`;
 
     const pregledHtml = brziPregledHtml(p, dodatne, izvorGumb);
+    const pristupiHtml = pristupiZapisuHtml(p);
 
     // Izvorni zapisi
     const zapisi = P.zapisi(p, dodatne, imeDjelatnika);
@@ -508,6 +529,7 @@
           <summary>Izvorni zapisi (${zapisi.length})</summary>
           <ul class="zapisi">${zapisiHtml}</ul>
         </details>
+        ${pristupiHtml}
       </main>`;
   }
 
