@@ -1,0 +1,10 @@
+{
+  "name": "primopredaja-nfc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prototip primopredaje smjene uz NFC narukvicu (hackathon AI2MED). Testovi bez dodatnih paketa.",
+  "engines": { "node": ">=20.6" },
+  "scripts": {
+    "test": "node --test"
+  }
+}

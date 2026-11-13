@@ -2,55 +2,110 @@
 
 Prototip s AI2MED hackathona, izazov 12: kako poboljšati prijenos informacija među zdravstvenim djelatnicima.
 
-Svaki pacijent nosi NFC narukvicu s anonimnim ID-em. Pri primopredaji smjene djelatnik uz krevet prisloni mobitel na narukvicu i otvori se kartica tog pacijenta u **I-PASS** strukturi:
+> **Svi podaci su izmišljeni.** Ovo je prototip za hackathon, nije medicinski proizvod i ne smije se koristiti sa stvarnim podacima o pacijentima.
+
+## Problem
+
+Pri primopredaji smjene informacije o pacijentu prenose se usmeno ili na papiru, u žurbi, pet minuta prije kraja smjene. Najčešće se izgubi upravo ono što se dogodilo zadnje: nalaz koji je stigao, a nitko ga nije pogledao, lijek uveden poslijepodne, pad tlaka u zadnjem mjerenju.
+
+Prototip je usredotočen na dvije stvari:
+
+1. **NFC narukvica:** uz krevet skeniraj narukvicu i odmah vidi zapis pacijenta pripremljen za primopredaju: što se promijenilo, što ne smiješ propustiti, tko je i kada pristupao zapisu.
+2. **Glasovni unos:** izgovori nalaze, vitalne znakove, terapiju, zadatke i bilješke; sustav ih razvrsta u polja kao **nepotvrđeni nacrt**, a u zapis ulazi tek ono što djelatnik pregleda, ispravi i potvrdi.
+
+## Kartica pacijenta
+
+Svaki pacijent nosi NFC narukvicu s anonimnim ID-em. Kad djelatnik prisloni mobitel na narukvicu, otvori se kartica pacijenta. Na vrhu su ime, soba, dijagnoza, način otvaranja (skeniranjem, simulirano ili ručno) i alergije, a ispod:
+
+**Pregled za primopredaju:** sve ključno na jednom mjestu.
+
+| Blok | Što prikazuje |
+|---|---|
+| Vitalni znakovi | zadnje mjerenje, u zagradi vrijednost s početka smjene; odstupanja su crvena |
+| Zadnji nalazi | tri najnovija, s oznakom *nije pregledan* ili *na čekanju* |
+| Terapija | aktualna terapija; promjene (uveden, ukinut, doza) s vremenom |
+| Zadnje bilješke | dvije najnovije, s autorom i vremenom |
+| Otvoreni zadaci | po roku, zadaci koji kasne crveno |
+
+**Glasovni unos** (vidi niže), pa struktura **I-PASS**:
 
 | | Dio kartice | Što prikazuje |
 |---|---|---|
-| **I** | Težina stanja | stabilan, pojačan nadzor ili hitna pozornost; sustav podiže procjenu ako postoje upozorenja |
+| **I** | Težina stanja | stabilan, pojačan nadzor ili hitna pozornost; procjena raste ako postoje upozorenja |
 | **P** | Sažetak pacijenta | kratki sažetak s poveznicama na izvorne zapise (iz pravila ili AI) |
 | **A** | Akcijska lista | zadaci za sljedeću smjenu i nalazi na čekanju |
-| **S** | Plan za moguće situacije | "ako se dogodi X, napravi Y" |
-| **S** | Provjera i preuzimanje | upozorenja koja treba potvrditi, bilješka uz krevet, potvrda preuzimanja |
+| **S** | Plan za moguće situacije | „ako se dogodi X, napravi Y“ |
+| **S** | Provjera i preuzimanje | upozorenja koja treba potvrditi, bilješka uz krevet, preuzimanje |
 
-Pacijenta se ne može preuzeti dok se ne potvrde sva upozorenja. Sustav bilježi tko je, kada i kako (skeniranjem ili ručno) preuzeo svakog pacijenta.
+- Kartica jasno pokazuje je li otvorena **skeniranjem narukvice**, **simuliranim skeniranjem** (demo bez čitača) ili **ručno**.
+- Uz svaku tvrdnju je gumb **izvor**, koji otvara izvorni zapis (nalaz, terapiju, vitalne znakove, bilješku).
+- Pacijenta se **ne može preuzeti** dok se ne potvrde sva upozorenja. Sustav bilježi tko je, kada i kako preuzeo pacijenta.
+- Na dnu kartice je **Pristupi zapisu**: tko je i kada skenirao narukvicu, otvorio karticu, upisao ili potvrdio podatke, uključujući odbijene pristupe djelatnika s drugog odjela. Cijeli zapisnik je na stranici **Zapisnik**.
+- Upisuju se samo **bilješka uz krevet** i **potvrđeni glasovni unosi**. Svi ostali podaci dolaze iz bolničkog sustava (u prototipu iz `js/data.js`).
 
-> **Svi podaci su izmišljeni.** Ovo je prototip za hackathon, nije medicinski proizvod i ne smije se koristiti sa stvarnim podacima o pacijentima.
+## Glasovni unos
 
-## Što prototip pokazuje
+1. Djelatnik na kartici pacijenta pritisne **Diktiraj** i govori (ili tekst upiše ili zalijepi).
+2. Kad stane, tekst se pravilima razvrsta u polja: **vitalni znakovi**, **nalaz**, **terapija** (uveden, ukinut, doza povećana ili smanjena, jednokratno dan), **zadatak** s rokom i **opća bilješka**.
+3. Svako polje je **nacrt označen „Nepotvrđeno“**, uz doslovni dio diktata iz kojeg je nastalo. Djelatnik ga ispravi i **potvrdi** ili **odbaci**. Nacrt nije dio zapisa: ne vidi se u pregledu, ne utječe na upozorenja i ne briše se ponovnim učitavanjem stranice.
+4. Tek potvrđeno polje ulazi u zapis pacijenta, s oznakom *glasovni unos* i imenom onoga tko ga je potvrdio, i od tada sudjeluje u pregledu, upozorenjima (npr. puls 128 daje kritično upozorenje), akcijskoj listi i sažetku. Potvrda, ispravak i odbacivanje bilježe se u zapisnik.
 
-- **Skeniranje NFC narukvice** (Web NFC) i otvaranje kartice pravog pacijenta.
-- **Upozorenja iz pravila** koja hvataju ono što se najčešće izgubi pri primopredaji:
-  - nalaz je stigao, a nitko ga nije pregledao (kritično ako je izvan referentnog raspona);
-  - promjena terapije u zadnjih 12 h koja nije spomenuta ni u jednoj bilješci;
-  - pad saturacije, febrilitet, nagla promjena srčane frekvencije, niski tlak;
-  - zadatak kojem je prošao rok.
-- **Izvor za svaku tvrdnju**: klik na „izvor“ otvara izvorni zapis.
-- **Kontrola pristupa**: djelatnik vidi samo pacijente svog odjela; pokušaj pristupa tuđem pacijentu se odbija i bilježi.
-- **Zapisnik** svih prijava, skeniranja, otvaranja kartica i preuzimanja.
-- **Neobavezni AI sažetak** (Claude) preko lokalnog poslužitelja, uz provjeru da se sažetak poziva samo na postojeće zapise.
+**Ništa se ne izmišlja.** Ono što se ne može pouzdano svrstati ide u opću bilješku:
+- vrijednost izvan uvjerljivog raspona (npr. „tlak 300 na 80“, hemoglobin u krivoj jedinici), uz napomenu,
+- isti vitalni znak izgovoren dvaput s različitim vrijednostima,
+- nejasna fraza („frekvencija 88“: srčana ili disanja?),
+- ukidanje ili promjena doze lijeka koji pacijent nema u terapiji, uz napomenu,
+- sve što počinje s „bilješka:“ ili „napomena:“, do kraja rečenice.
 
-Upozorenja su namjerno pravila, a ne AI: moraju biti predvidljiva, pa AI ne može „zaboraviti“ kritičan nalaz. AI piše samo tekstualni sažetak, a odgovornost i odluka ostaju djelatniku.
+Pri potvrdi se vrijednosti ponovno provjeravaju (npr. zadatak mora imati rok, tlak oba broja).
+
+Razvrstavanje je u `js/razvrstavanje.js` i namjerno je **pravilima, a ne AI-jem**, iz istog razloga kao i upozorenja: predvidljivo je, radi bez poslužitelja i ne može izmisliti vrijednost.
+
+### Govor u tekst: Web Speech API
+
+Za pretvorbu govora koristi se ugrađeni **Web Speech API** preglednika (`js/govor.js`, jezik `hr-HR`).
+
+| Prednosti | Nedostaci |
+|---|---|
+| nema paketa, ključeva ni poslužitelja; radi i na GitHub Pagesu | pouzdano radi samo u **Chromeu i Edgeu** (računalo i Android); Safari djelomično, Firefox ne |
+| tekst se vidi dok djelatnik govori | **Chrome šalje zvuk Googleovim poslužiteljima** i treba internet: prihvatljivo za demo s izmišljenim podacima, **nije prihvatljivo za stvarne pacijente** |
+| podržava hrvatski | osrednja točnost za medicinske izraze; često vraća tekst bez interpunkcije (pravila za razvrstavanje to podnose) |
+
+Gdje govor ne radi, isti tok radi s upisanim tekstom, a na kartici su i **primjeri diktata za demo**. Mikrofon, kao i NFC, radi samo preko HTTPS-a ili na `localhost`.
+
+Za stvarnu upotrebu prepoznavanje govora trebalo bi raditi unutar bolničke infrastrukture (npr. lokalni model tipa Whisper).
+
+## Četiri upozorenja
+
+Upozorenja su namjerno **pravila, a ne AI**: moraju biti predvidljiva i provjerljiva, pa AI ne može „zaboraviti“ kritičan nalaz.
+
+1. **Nalaz je stigao, a nitko ga nije pregledao.** Kritično ako je izvan referentnog raspona.
+2. **Promjena terapije u zadnjih 12 h** koja nije spomenuta ni u jednoj kasnijoj bilješci.
+3. **Pogoršanje vitalnih znakova:** saturacija ispod ciljne, febrilitet, nagla promjena ili nesiguran raspon srčane frekvencije, niski sistolički tlak.
+4. **Zadatak kojem je prošao rok.**
+
+Pravila su u `js/pravila.js`. AI piše samo tekstualni sažetak; odgovornost i odluka ostaju djelatniku.
 
 ## Pokretanje
 
-### 1. Najbrže: samo otvoriti
+### 1. Najbrže: statični poslužitelj
 
-U mapi projekta pokrenite bilo koji statični poslužitelj, npr.:
+U mapi aplikacije pokrenite:
 
 ```bash
-python3 -m http.server 8000
+python -m http.server 8000      # na nekim računalima: py -m http.server 8000
 ```
 
-i otvorite http://localhost:8000. Radi sve osim AI sažetka. Bez NFC-a karticu otvarate dodirom na pacijenta ili upisom ID-a narukvice.
+i otvorite http://localhost:8000. Radi sve osim AI sažetka, uključujući glasovni unos u Chromeu ili Edgeu. Bez NFC čitača skeniranje se simulira odabirom narukvice (vidi niže).
 
 ### 2. GitHub Pages: za NFC na mobitelu
 
 Web NFC radi samo preko HTTPS-a, a GitHub Pages ga daje besplatno.
 
-1. Stavite repozitorij na GitHub.
-2. **Settings → Pages → Build and deployment → Deploy from a branch**, odaberite `main` i `/ (root)`.
-3. Nakon minute-dvije aplikacija je na `https://<korisnik>.github.io/<repozitorij>/`.
-4. Otvorite tu adresu u **Chromeu na Androidu**.
+1. Na GitHubu: **Settings → Pages → Build and deployment → Deploy from a branch**, odaberite `main` i `/ (root)`.
+2. Nakon minute-dvije aplikacija je na
+   `https://<korisnik>.github.io/<repozitorij>/files%20(1)/primopredaja-nfc/primopredaja-nfc/`.
+3. Otvorite tu adresu u **Chromeu na Androidu**.
 
 Na GitHub Pagesu AI sažetak ne radi (nema poslužitelja), pa se prikazuje sažetak iz pravila.
 
@@ -60,59 +115,37 @@ Treba Node.js 20.6 ili noviji, bez dodatnih paketa.
 
 ```bash
 cd server
-cp .env.example .env        # upišite ANTHROPIC_API_KEY u .env
+cp .env.example .env        # Windows: copy .env.example .env, pa upišite ANTHROPIC_API_KEY
 npm start
 ```
 
-Otvorite http://localhost:3000. Na kartici pacijenta pojavit će se gumb **Napravi AI sažetak**. API ključ ostaje na poslužitelju i nikad ne ide u preglednik; `.env` je u `.gitignore`.
+Otvorite http://localhost:3000. Na kartici se pojavi gumb **Napravi AI sažetak**. Poslužitelj odbacuje sažetak koji se poziva na zapise kojih nema, a aplikacija tada prikazuje sažetak iz pravila. API ključ ostaje na poslužitelju i nikad ne ide u preglednik; `.env` je u `.gitignore`.
 
-Model se može promijeniti varijablom `CLAUDE_MODEL` u `.env`. Dokumentacija: https://docs.claude.com/en/api/overview
+Bez ključa: `npm run start:bez-ai` (poslužuje aplikaciju, a prikazuje se sažetak iz pravila).
+
+Model se mijenja varijablom `CLAUDE_MODEL` u `.env`. Dokumentacija: https://docs.claude.com/en/api/overview
 
 Za NFC i AI zajedno na mobitelu lokalni poslužitelj mora biti dostupan preko HTTPS-a, npr. tunelom (`ngrok http 3000`).
 
+### Testovi
+
+U mapi aplikacije (Node.js 20.6 ili noviji, bez paketa):
+
+```bash
+npm test
+```
+
+Testira pravila za upozorenja, pregled za primopredaju, razvrstavanje izgovorenog teksta i spajanje potvrđenih glasovnih unosa u zapis, te sintaksu svih skripti. Projekt nema build korak.
+
 ## Demo PIN-ovi
 
-| PIN | Djelatnik | Razina pristupa | Odjel |
-|---|---|---|---|
-| 1111 | dr. Ana Kovač | voditelj odjela | Interna B |
-| 2222 | dr. Luka Radić, dežurni liječnik | liječnik | Interna B |
-| 3333 | Ivana Tomić | medicinska sestra / tehničar | Interna B |
-| 4444 | dr. Marko Grgić, kirurg | liječnik | Kirurgija A (za test odbijenog pristupa) |
-| 1010 | dr. Zdravko Ravlić | ravnatelj | svi odjeli, samo čitanje |
-| 9999 | Sanja Lovrić | administrator sustava | bez odjela, ne vidi pacijente |
+| PIN | Djelatnik | Odjel |
+|---|---|---|
+| 2222 | dr. Luka Radić, liječnik | Interna B |
+| 3333 | Ivana Tomić, medicinska sestra | Interna B |
+| 4444 | dr. Marko Grgić, kirurg | Kirurgija A (samo za test odbijenog pristupa) |
 
-Ostali djelatnici (za raspored smjena) imaju PIN-ove 5555, 6666, 7777, 8888, 1212, 1313, 1414 i 1515 (vidi `js/data.js`).
-
-## Uloge i razine pristupa
-
-| Uloga | Što smije |
-|---|---|
-| **Liječnik** | propisuje terapiju, piše bilješke iz vizite, vidi, upisuje i pregledava nalaze, upisuje vitalne znakove, zadatke, plan i stanje; uređuje i briše te zapise |
-| **Medicinska sestra / tehničar** | bilježi primjenu lijekova, prati vitalne znakove, piše sestrinske bilješke, zadatke; uređuje i briše te zapise; nalaze i terapiju samo vidi |
-| **Voditelj odjela** | sve što i liječnik, plus uređivanje rasporeda smjena svog odjela |
-| **Ravnatelj** | pregled svih odjela, pacijenata, rasporeda i zapisnika, bez izmjena |
-| **Administrator** | upis novih djelatnika, razine pristupa, odjeli i raspored; ne vidi pacijente |
-
-Liječnici, sestre i voditelji vide i mijenjaju samo pacijente svog odjela. Prava su na jednom mjestu, u `ROLE` u `js/app.js`.
-
-## Upis podataka
-
-S kartice ili profila pacijenta otvara se stranica za upis po vrsti zapisa: **vitalni znakovi, nalazi, terapija, primjena lijekova, bilješke (iz vizite, sestrinske, uz krevet), zadaci, plan za moguće situacije i stanje pacijenta**. Obrazac se prikazuje samo ako uloga ima pravo upisa; inače su zapisi samo za čitanje.
-
-- Svaki zapis nosi **datum i vrijeme upisa i ime djelatnika**; izmjena dodaje tko je i kada mijenjao.
-- Brisanje traži potvrdu i bilježi se u zapisniku s tekstom obrisanog zapisa. Povijest stanja se ne uređuje ni ne briše.
-- Novi upisi odmah ulaze u upozorenja na kartici: npr. nalaz izvan raspona koji nitko nije pregledao, ili promjena doze koja nije spomenuta u bilješci.
-- Profil pacijenta prikazuje popratne bolesti, trenutnu terapiju (od kada, tko je propisao, zadnja primjena) i **tijek stanja**: sve upise kronološki, s datumom i vremenom.
-
-## Profil pacijenta, novi pacijent, administracija, raspored
-
-- **Profil pacijenta** (poveznica na kartici): osnovni podaci, kontakt osoba, trenutna hospitalizacija, alergije, bolesti, kućna terapija, prethodne hospitalizacije, pregledi i operacije. Svaka sekcija se može dopuniti; ukloniti se mogu samo stavke dodane u demou, izvorni zapisi ne.
-- **Alergije** se prikazuju na vrhu kartice. Ako je u terapiji lijek na koji je zabilježena alergija, kartica pokazuje kritično upozorenje (npr. dodajte Mariji Šimić alergiju na „Ceftriakson“).
-- **Novi pacijent** (gumb na ekranu odjela): obrazac s osobnim podacima, smještajem i medicinskom poviješću. Sustav provjerava je li krevet slobodan i dodjeljuje anonimni ID za narukvicu.
-- **Administracija** (PIN 9999): upis novih djelatnika (ime, radno mjesto, razina pristupa, odjel, PIN), promjena razine pristupa, dodavanje odjela i raspoređivanje djelatnika po odjelima. Djelatnik odmah vidi samo pacijente novog odjela.
-- **Raspored smjena** (dnevna 07–19, noćna 19–07): tjedni pregled po odjelu. Djelatnici vide raspored svog odjela i svoje smjene; voditelj odjela i administrator dodaju i uklanjaju djelatnike. Sustav upozorava na smjenu bez liječnika ili sestre, na dnevnu i noćnu zaredom te na dnevnu odmah nakon noćne. Zadani raspored je rotacija dnevna, noćna, slobodan dan.
-
-Sve izmjene (uključujući upise, izmjene i brisanja kliničkih zapisa) se spremaju u `localStorage`; gumb na dnu administracije vraća početne demo podatke.
+Liječnik i sestra imaju ista prava: otvoriti karticu, potvrditi upozorenja, napisati bilješku uz krevet, diktirati i potvrditi glasovni unos te preuzeti pacijenta. Djelatnik vidi samo pacijente svog odjela.
 
 Vrijeme demo smjene je fiksno: danas u 18:55, pet minuta prije kraja dnevne smjene.
 
@@ -131,17 +164,28 @@ Trebaju vam prazne NFC naljepnice ili narukvice tipa **NTAG213** ili **NTAG215**
 
 ID-evi demo pacijenata: `k7m2q9xa`, `p3c8w1rn`, `h5v1t6ze`, `r9d4j2lu`, `w2f7b3kc`, `n8s5e4dy` (Interna B) i `t1g6y8hp` (Kirurgija A).
 
+### Bez NFC čitača: simulacija skeniranja
+
+Gumb **Skeniraj narukvicu** na pregledniku bez Web NFC-a (računalo, iPhone) nudi popis demo narukvica. Odabir se ponaša kao skeniranje, ali na kartici, pri preuzimanju i u zapisniku piše da je skeniranje **simulirano**. Narukvica s drugog odjela prikazana je bez imena, za demo odbijenog pristupa. Na Androidu je simulacija sklopljena ispod uputa za pravo skeniranje. Ručni upis ID-a i dodir na pacijenta na popisu i dalje se bilježe kao ručno otvaranje.
+
 ## Scenarij za demo na pozornici
 
 1. Član tima nosi narukvicu „pacijenta“ Ive Perića (`k7m2q9xa`).
-2. Prijavite se kao dežurni liječnik (PIN 2222). Odjel pokazuje 0 od 6 preuzetih, Ivo je na vrhu, crveno.
-3. Skenirajte narukvicu. Kartica potvrđuje identitet i pokazuje **kritično upozorenje: kalij 6,1 mmol/L stigao u 18:50, nitko ga nije pregledao**, uz uvedeni spironolakton koji nije spomenut i pad srčane frekvencije.
-4. Klik na „izvor n2“ pokazuje izvorni nalaz.
-5. Pokušajte preuzeti: gumb je zaključan dok se ne potvrde sva upozorenja. Potvrdite ih i preuzmite.
-6. Natrag na odjelu: 1 od 6 preuzeto.
-7. Za pitanje o privatnosti: prijavite se PIN-om 4444 (kirurg) i skenirajte istu narukvicu. Pristup je odbijen i zabilježen u **Zapisniku**.
+2. Prijavite se kao dežurni liječnik (PIN 2222). Odjel pokazuje **0 od 6** preuzetih, Ivo je na vrhu, crveno.
+3. Skenirajte narukvicu (ili je odaberite u simulaciji). Kartica potvrđuje identitet; **Pregled za primopredaju** pokazuje pad pulsa s 82 na 56/min, kalij 6,1 *nije pregledan* i spironolakton uveden u 14:20.
+4. Ispod su **kritično upozorenje: kalij 6,1 mmol/L stigao u 18:50, nitko ga nije pregledao**, uz uvedeni spironolakton koji nije spomenut i pad srčane frekvencije. Klik na „izvor n2“ pokazuje izvorni nalaz.
+5. **Glasovni unos:** pritisnite **Diktiraj** i recite npr. *„Tlak 100 na 60, puls 52. Spironolakton ukinut. Zadatak: kontrola kalija u 22 sata. Bolesnik pospan, budi se na poziv.“* (ili odaberite prvi primjer diktata pa **Razvrstaj u polja**).
+6. Pokažite nacrt: svako polje je **NEPOTVRĐENO**, uz doslovni dio diktata. Ispravite jednu vrijednost, potvrdite polja jedno po jedno. Tek sada se novi puls i ukinuti spironolakton vide u pregledu, s oznakom *glasovni unos*.
+7. Pokušajte preuzeti: gumb je zaključan dok se ne potvrde sva upozorenja. Potvrdite ih i preuzmite. Natrag na odjelu: **1 od 6** preuzeto.
+8. Za pitanje o privatnosti: prijavite se PIN-om 4444 (kirurg) i skenirajte istu narukvicu. Pristup je odbijen. Ponovno se prijavite s 2222: na Ivinoj kartici, u **Pristupi zapisu**, vidi se i odbijeni pokušaj.
 
-Rezervni plan ako NFC zakaže: dodirnite pacijenta na popisu ili upišite ID ručno. Kartica će pokazati da je otvorena bez skeniranja.
+Za pitanje „što ako je krivo čulo?“: treći primjer diktata ima „tlak 300 na 80“, koji se ne svrstava nego ostaje u bilješci uz napomenu.
+
+Rezervni plan ako NFC ili mikrofon zakažu: simulirajte skeniranje i upišite ili odaberite primjer diktata.
+
+Prije svakog nastupa, na dnu ekrana odjela:
+- **Nova primopredaja** briše preuzimanja, potvrde, bilješke uz krevet te nacrte i potvrđene glasovne unose (zapisnik ostaje).
+- **Vrati početne demo podatke** briše sve, i zapisnik, i odjavljuje korisnika.
 
 ## Struktura
 
@@ -149,13 +193,18 @@ Rezervni plan ako NFC zakaže: dodirnite pacijenta na popisu ili upišite ID ru�
 index.html          ulazna stranica
 css/style.css       izgled (svijetli i tamni način za noćnu smjenu)
 js/data.js          izmišljeni pacijenti, djelatnici, nalazi
-js/pravila.js       upozorenja, procjena stanja, I-PASS dijelovi, izvorni zapisi
+js/pravila.js       četiri upozorenja, procjena stanja, pregled za primopredaju, I-PASS dijelovi,
+                    izvorni zapisi, spajanje potvrđenih glasovnih unosa u zapis
 js/nfc.js           čitanje i zapisivanje NFC narukvica (Web NFC)
-js/app.js           ekrani, prijava, preuzimanje, zapisnik
+js/govor.js         govor u tekst (Web Speech API, hr-HR)
+js/razvrstavanje.js razvrstavanje izgovorenog teksta u polja (pravila)
+js/app.js           ekrani, prijava, simulacija skeniranja, glasovni unos, preuzimanje, zapisnik
+tests/              testovi (npm test)
+api/zdravlje        statični odgovor "AI nije dostupan" za statični poslužitelj i GitHub Pages
 server/server.js    neobavezni poslužitelj za AI sažetak (Claude API)
 ```
 
-Stanje demoa (preuzimanja, bilješke, zapisnik) sprema se u `localStorage` preglednika. Gumb **Nova primopredaja** na dnu odjela briše preuzimanja i bilješke.
+Stanje demoa (prijava, preuzimanja, bilješke, nacrti i potvrđeni glasovni unosi, zapisnik) sprema se u `localStorage` preglednika pod ključevima `primopredaja-demo-v2:`. Podaci starije verzije aplikacije brišu se pri pokretanju.
 
 ## Što bi trebalo za stvarnu upotrebu
 
@@ -163,7 +212,19 @@ Stanje demoa (preuzimanja, bilješke, zapisnik) sprema se u `localStorage` pregl
 - Prijava preko bolničkog sustava ili službene kartice, a ne PIN-om u aplikaciji.
 - Zapisnik na poslužitelju koji se ne može mijenjati.
 - AI model unutar bolničke infrastrukture ili s ugovorom o obradi podataka, u skladu s GDPR-om.
-- Klinička validacija pravila za upozorenja s liječnicima i medicinskim sestrama.
+- Prepoznavanje govora unutar bolničke infrastrukture umjesto Web Speech API-ja (zvuk ne smije izaći iz bolnice).
+- Potvrđeni glasovni unosi zapisani u bolnički sustav, a ne u preglednik; vrijeme mjerenja upisano, a ne vrijeme potvrde.
+- Klinička validacija pravila za upozorenja i za razvrstavanje diktata s liječnicima i medicinskim sestrama.
+
+## Moguća proširenja
+
+Prototip je namjerno sužen na trenutak primopredaje. Ova proširenja već su bila izrađena, a puna verzija čuva se na grani [`puna-verzija`](https://github.com/miahrk/Healthcare-Innovation/tree/puna-verzija):
+
+- **Raspored smjena** po odjelu, s upozorenjima na smjenu bez liječnika ili sestre i rad bez odmora.
+- **Administracija**: upis djelatnika, razine pristupa i odjeli.
+- **Alergije kao pravilo**: upozorenje kad je u terapiji lijek na koji je zabilježena alergija.
+- **Ostale uloge**: voditelj odjela, ravnatelj (pregled svih odjela) i administrator, uz različita prava liječnika i sestre.
+- Profil pacijenta s poviješću bolesti, obrazac za novog pacijenta i upis kliničkih zapisa.
 
 ## Tim
 

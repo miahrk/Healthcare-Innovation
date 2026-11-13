@@ -94,7 +94,7 @@ Healthcare-Innovation/
         ├── index.html
         ├── css/  js/                         ← sučelje i logika
         ├── server/                           ← neobavezni poslužitelj za AI sažetak
-        └── README.md                         ← opis aplikacije, demo PIN-ovi, uloge
+        └── README.md                         ← opis aplikacije, demo PIN-ovi, scenarij
 ```
 
 Naziv mape `files (1)` sadrži razmak i zagrade, pa ga u terminalu uvijek pišite **pod navodnicima**:
@@ -171,12 +171,9 @@ Bez ključa poslužitelj se može pokrenuti s `npm run start:bez-ai`.
 
 | PIN | Uloga |
 |---|---|
-| 1111 | voditeljica odjela (Interna B) |
-| 2222 | liječnik |
-| 3333 | medicinska sestra |
+| 2222 | liječnik (Interna B) |
+| 3333 | medicinska sestra (Interna B) |
 | 4444 | liječnik s drugog odjela (test odbijenog pristupa) |
-| 1010 | ravnatelj (pregled svih odjela) |
-| 9999 | administratorica |
 
 Detaljan opis aplikacije je u `files (1)/primopredaja-nfc/primopredaja-nfc/README.md`.
 
@@ -194,7 +191,7 @@ git pull
 Za svaku novu funkciju ili ispravak napravite granu s opisnim imenom:
 
 ```bash
-git checkout -b ispravak-rasporeda
+git checkout -b ispravak-upozorenja
 ```
 
 ### Spremite i pošaljite promjene
@@ -203,7 +200,7 @@ git checkout -b ispravak-rasporeda
 git status                       # pregled promijenjenih datoteka
 git add <datoteka>               # ili: git add .   (sve promjene)
 git commit -m "Kratak opis što ste napravili"
-git push -u origin ispravak-rasporeda
+git push -u origin ispravak-upozorenja
 ```
 
 Nakon pusha terminal ispisuje poveznicu za **pull request**. Otvorite je (ili na GitHubu kliknite
@@ -214,7 +211,7 @@ Nakon pusha terminal ispisuje poveznicu za **pull request**. Otvorite je (ili na
 ```bash
 git checkout main
 git pull
-git branch -d ispravak-rasporeda
+git branch -d ispravak-upozorenja
 ```
 
 ### Dobri commitovi
@@ -246,7 +243,7 @@ git branch -d ispravak-rasporeda
 | `cd: files: No such file or directory` | razmak u nazivu mape | stavite putanju pod navodnike: `cd "files (1)/..."` |
 | `warning: LF will be replaced by CRLF` | razlika u završecima redaka (Windows) | bezopasno, može se zanemariti |
 | `python` nije prepoznat | Python nije instaliran ili nije u PATH-u | probajte `py -m http.server 8000` ili instalirajte Python uz opciju *Add to PATH* |
-| Aplikacija prikazuje stare podatke | demo sprema stanje u preglednik | odjava → prijava PIN-om 9999 → dno stranice *Vrati početne demo podatke* |
+| Aplikacija prikazuje stare podatke | demo sprema stanje u preglednik | na dnu ekrana odjela kliknite *Vrati početne demo podatke* |
 
 ## 10. Bez terminala: GitHub Desktop
 
