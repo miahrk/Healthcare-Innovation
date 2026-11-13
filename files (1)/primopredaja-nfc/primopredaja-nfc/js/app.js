@@ -183,9 +183,14 @@
   }
 
   // ---------- ekran: odjel ----------
+  // Zapis pacijenta iz bolničkog sustava (data.js) + potvrđeni glasovni unosi.
+  // Nepotvrđeni nacrti NIKAD ne ulaze ovdje.
+  const zapisPacijenta = (p) => P.spojiUnose(p, store.get('unosi', {})[p.tag] || []);
+
   function stanjePacijenta(p) {
-    const upoz = P.upozorenja(p, D.sada, biljeskeUzKrevet(p.tag));
-    return { upoz, razina: P.procjena(p, upoz) };
+    const q = zapisPacijenta(p);
+    const upoz = P.upozorenja(q, D.sada, biljeskeUzKrevet(p.tag));
+    return { upoz, razina: P.procjena(q, upoz) };
   }
 
   function ekranOdjel(k) {
@@ -286,20 +291,24 @@
       nepregledan: '<span class="oznaka kriticno">nije pregledan</span>',
       pregledan: ''
     };
+    // Oznaka za podatak koji je došao iz potvrđenog glasovnog unosa
+    const GLAS = ' <span class="oznaka glas-oznaka">glasovni unos</span>';
 
+    // Znak izmjeren u drugom mjerenju od zadnjeg (djelomični glasovni unos) dobiva svoje vrijeme i izvor
     const vitaliHtml = pr.vitali
       ? `<p class="tiho mali-tekst">Mjereno u ${kada(pr.vitali.vrijeme)}${pr.vitali.ranijeVrijeme ? `, u zagradi ${kada(pr.vitali.ranijeVrijeme)}` : ''} ${izvorGumb(pr.vitali.id)}</p>
          <dl class="vitali">${pr.vitali.stavke.map((s) => `
            <div class="${s.odstupa ? 'odstupa' : ''}">
-             <dt>${s.oznaka}</dt>
-             <dd><strong>${esc(s.vrijednost)}</strong>${s.ranije ? ` <span class="tiho">(${esc(s.ranije)})</span>` : ''}${s.odstupa ? '<span class="nevidljivo"> odstupa</span>' : ''}</dd>
+             <dt>${s.oznaka}${s.glas ? ' <span class="glas-tocka" title="glasovni unos">glas</span>' : ''}</dt>
+             <dd><strong>${esc(s.vrijednost)}</strong>${s.ranije ? ` <span class="tiho">(${esc(s.ranije)})</span>` : ''}${s.odstupa ? '<span class="nevidljivo"> odstupa</span>' : ''}
+               ${s.izvor !== pr.vitali.id ? `<br><span class="tiho mali-tekst">u ${kada(s.vrijeme)}</span> ${izvorGumb(s.izvor)}` : ''}</dd>
            </div>`).join('')}</dl>`
       : prazno('Nema mjerenja.');
 
     const nalaziHtml = pr.nalazi.length
       ? `<ul class="pregled-lista">${pr.nalazi.map((n) => `
           <li${n.status === 'nepregledan' && n.izvanRef ? ' class="kriticno-tekst"' : ''}>
-            <strong>${esc(n.naziv)}</strong>: ${esc(n.tekst)} ${STATUS[n.status]}
+            <strong>${esc(n.naziv)}</strong>: ${esc(n.tekst)} ${STATUS[n.status]}${n.glas ? GLAS : ''}
             <span class="tiho mali-tekst">${kada(n.vrijeme)}</span> ${izvorGumb(n.id)}
           </li>`).join('')}</ul>${jos(pr.nalaziJos)}`
       : prazno('Nema nalaza.');
@@ -307,13 +316,13 @@
     const terapijaHtml = pr.terapija.length
       ? `<ul class="pregled-lista">${pr.terapija.map((t) => `
           <li><strong>${esc(t.lijek)}</strong> ${esc(t.doza)}
-            ${t.promjena ? `<span class="oznaka upoz">${esc(t.promjena)} u ${kada(t.od)}</span>` : ''} ${izvorGumb(t.id)}
+            ${t.promjena ? `<span class="oznaka upoz">${esc(t.promjena)} u ${kada(t.od)}</span>` : ''}${t.glas ? GLAS : ''} ${izvorGumb(t.id)}
           </li>`).join('')}</ul>`
       : prazno('Nema terapije.');
 
     const biljeskeHtml = pr.biljeske.length
       ? `<ul class="pregled-lista">${pr.biljeske.map((b) => `
-          <li><span class="tiho mali-tekst">${kada(b.vrijeme)}, ${esc(imeDjelatnika(b.autor))}${b.uzKrevet ? ', uz krevet' : ''}</span><br>
+          <li><span class="tiho mali-tekst">${kada(b.vrijeme)}, ${esc(imeDjelatnika(b.autor))}${b.uzKrevet ? ', uz krevet' : ''}</span>${b.glas ? GLAS : ''}<br>
             ${esc(b.tekst)} ${izvorGumb(b.id)}
           </li>`).join('')}</ul>${jos(pr.biljeskeJos)}`
       : prazno('Nema bilješki.');
@@ -321,7 +330,7 @@
     const zadaciHtml = pr.zadaci.length
       ? `<ul class="pregled-lista">${pr.zadaci.map((z) => `
           <li${z.kasni ? ' class="kriticno-tekst"' : ''}>
-            <strong>${kada(z.rok)}</strong> ${esc(z.opis)}${z.kasni ? ' <strong>(kasni)</strong>' : ''} ${izvorGumb(z.id)}
+            <strong>${kada(z.rok)}</strong> ${esc(z.opis)}${z.kasni ? ' <strong>(kasni)</strong>' : ''}${z.glas ? GLAS : ''} ${izvorGumb(z.id)}
           </li>`).join('')}</ul>`
       : prazno('Nema otvorenih zadataka.');
 
@@ -556,7 +565,11 @@
     const p = pacijent(tag);
     const k = korisnik();
     if (!p || !vidiPacijenta(k, p) || !tekst.trim()) return 0;
-    const r = RZ.razvrstaj(tekst, sadaZaZapis());
+    // lijekovi koje pacijent trenutno ima: ukidanje i promjena doze prihvaćaju se samo za njih
+    const lijekovi = zapisPacijenta(p).terapija.filter((t) => !t.neaktivno && t.promjena !== 'ukinut' && !t.jednokratno).map((t) => t.lijek);
+    // Rokovi ("u 21 sat") i prošla vremena ("dan u 18 sati") računaju se od vremena demo smjene,
+    // istog "sada" koje koriste pravila za upozorenja i akcijsku listu.
+    const r = RZ.razvrstaj(tekst, D.sada, { lijekovi });
     if (!r.polja.length) return 0;
     const n = nacrtZa(tag) || { id: 'gn' + Date.now().toString(36), autor: k.id, vrijeme: sadaZaZapis(), diktati: [], napomene: [], polja: [] };
     const br = n.diktati.length;
@@ -649,7 +662,8 @@
     }
     const sve = store.get('unosi', {});
     const unos = {
-      id: 'gu' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      // kratki ID po pacijentu (g1, g2, …) za gumbe "izvor"; unosi se brišu samo svi odjednom (Nova primopredaja)
+      id: 'g' + ((sve[tag] || []).length + 1),
       vrsta: pl.vrsta, podaci: r.podaci, izvor: pl.izvor, nacrt: n.id,
       autor: n.autor, potvrdio: k.id, potvrdeno: sadaZaZapis(), ispravljeno: !!pl.ureden
     };
@@ -677,7 +691,7 @@
   function ekranKartica(r, k) {
     const odbijeno = odbijenPristup(r, k);
     if (odbijeno) return odbijeno;
-    const p = pacijent(r.tag);
+    const p = zapisPacijenta(pacijent(r.tag));
 
     // Način pristupa: skeniranjem (pravim ili simuliranim) ili ručno. Bilježi se jednom po otvaranju.
     if (r.nfc) {
@@ -1035,7 +1049,7 @@
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           opis: `${p.dob} god., ${p.spol === 'Ž' ? 'žena' : 'muškarac'}, ${p.dg}`,
-          zapisi: P.zapisi(p, biljeskeUzKrevet(tag), imeDjelatnika)
+          zapisi: P.zapisi(zapisPacijenta(p), biljeskeUzKrevet(tag), imeDjelatnika)
             .map((z) => ({ ...z, vrijeme: z.vrijeme ? kada(z.vrijeme) : 'bez vremena' }))
         })
       });

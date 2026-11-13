@@ -89,11 +89,28 @@
   const PUT = '(?:i\\.v\\.|iv|intravenski|p\\.o\\.|per\\s+os|oralno|s\\.c\\.|sc|supkutano|i\\.m\\.|im)';
   const UCESTALOST = '(?:\\d+\\s*x\\s*dnevno|\\d+\\s*puta\\s+dnevno|svakih\\s+\\d+\\s*(?:h|sati)|jednom\\s+dnevno|dvaput\\s+dnevno|navečer|ujutro)';
   const DOZA = `(\\d+(?:[.,]\\d+)?\\s*(?:mg|g|mcg|µg|ml|ij|i\\.j\\.|jedinica|j\\.?)${POSLIJE}(?:\\s*${PUT}${POSLIJE})?(?:\\s*${UCESTALOST})?)`;
-  const NIJE_LIJEK = new Set(['je', 'se', 'mu', 'joj', 'na', 'u', 'i', 'bez', 'od', 'do', 'za', 'dan', 'dana', 'doza', 'dozu', 'terapija', 'terapiju', 'lijek', 'kisik']);
+  // Riječi koje nikad nisu lijek (npr. "ukinut ZBOG hiperkalijemije")
+  const NIJE_LIJEK = new Set(['je', 'se', 'mu', 'joj', 'na', 'u', 'i', 'bez', 'od', 'do', 'za', 'dan', 'dana', 'doza', 'dozu',
+    'terapija', 'terapiju', 'lijek', 'lijekovi', 'kisik', 'zbog', 'jer', 'radi', 'danas', 'jutros', 'sinoć', 'sada', 'odmah',
+    'ranije', 'kasnije', 'nakon', 'prije', 'uz', 'kod', 'iz', 'oko', 'pa', 'te', 'ali', 'nego', 'sve', 'svi',
+    'bolesnik', 'bolesnica', 'bolesniku', 'bolesnici', 'pacijent', 'pacijentica', 'pacijentu']);
   const TERAPIJA = OKIDACI_TERAPIJE.map((o) => ({
     ...o,
     re: re(`${PRIJE}(${o.rijeci})${POSLIJE}\\s+(?:je\\s+|mu\\s+|joj\\s+)?(?:lijek\\s+)?(?:(?:doza|dozu)\\s+)?([${L}][${L}-]{2,})(?:\\s+(?:na\\s+)?${DOZA})?`)
   }));
+  // Ukidanje i promjena doze odnose se na lijek koji pacijent već ima
+  const MIJENJA_POSTOJECI = new Set(['ukinut', 'doza povećana', 'doza smanjena']);
+  const UKINUT_IZA = OKIDACI_TERAPIJE.find((o) => o.promjena === 'ukinut').rijeci;
+
+  // "furosemida" (izgovoreno u genitivu) je isti lijek kao "Furosemid"
+  function istiLijek(a, b) {
+    a = a.toLowerCase(); b = b.toLowerCase();
+    return a === b || (Math.min(a.length, b.length) >= 5 && (a.startsWith(b) || b.startsWith(a)));
+  }
+  const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // "bilješka: ..." ili "napomena ..." do kraja rečenice je izričito bilješka i ne razvrstava se
+  const IZRICITA_BILJESKA = re(`${PRIJE}(?:bilješka|napomena)${POSLIJE}\\s*:?\\s*([^.;!?]+)`);
 
   // ---------- zadaci ----------
   // "zadatak", "treba", "potrebno", "ne zaboraviti" su zadatak i bez vremena (rok se tada upisuje pri potvrdi).
@@ -156,14 +173,27 @@
   }
 
   // ---------- glavna funkcija ----------
-  function razvrstaj(tekstUlaz, sada) {
+  // kontekst.lijekovi: nazivi lijekova u aktualnoj terapiji pacijenta (neobavezno).
+  // Kad je zadan, ukidanje i promjena doze prihvaćaju se samo za te lijekove.
+  function razvrstaj(tekstUlaz, sada, kontekst = {}) {
     const tekst = normaliziraj(tekstUlaz);
     const polja = [];
     const napomene = [];
     const zauzeto = [];   // dijelovi teksta koji su svrstani u polje
+    const lijekovi = Array.isArray(kontekst.lijekovi) ? kontekst.lijekovi.filter(Boolean) : null;
     if (!tekst) return { tekst, polja, napomene };
 
     const isjecak = (m) => ({ od: m.index, do: m.index + m[0].length, izvor: m[0].trim() });
+    const velikoSlovo = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+    // 0. izričite bilješke
+    for (const m of tekst.matchAll(IZRICITA_BILJESKA)) {
+      const t = m[1].trim().replace(/[,:–-]+$/, '').trim();
+      if (!/\p{L}{2,}/u.test(t)) continue;
+      const s = isjecak(m);
+      zauzeto.push(s);
+      polja.push({ vrsta: 'biljeska', podaci: { tekst: velikoSlovo(t) + '.' }, izvor: s.izvor, od: s.od });
+    }
 
     // 1. vitalni znakovi: svi u jedno polje
     const vitali = {};
@@ -219,8 +249,15 @@
         const lijekRijec = m[2];
         const doza = m[3] ? m[3].trim() : '';
         if (NIJE_LIJEK.has(lijekRijec.toLowerCase()) || /\d/.test(lijekRijec)) continue;
+        if (preklapa(isjecak(m), zauzeto)) continue;
         if (t.trebaDozu && !doza) {
           if (t.promjena !== 'jednokratno dan') napomene.push(`Promjena terapije bez doze („${m[0].trim()}”), ostavljeno u bilješci.`);
+          continue;
+        }
+        // naziv iz terapije pacijenta ako je to isti lijek ("furosemida" -> "Furosemid")
+        const poznat = lijekovi && lijekovi.find((l) => istiLijek(l, lijekRijec));
+        if (lijekovi && MIJENJA_POSTOJECI.has(t.promjena) && !poznat) {
+          napomene.push(`Lijek „${lijekRijec}” nije u terapiji pacijenta („${m[0].trim()}”), ostavljeno u bilješci.`);
           continue;
         }
         // bez doze uzimamo samo okidač i lijek, ne i ostatak
@@ -232,9 +269,22 @@
         zauzeto.push(s);
         polja.push({
           vrsta: 'terapija',
-          podaci: { lijek: lijekRijec.charAt(0).toUpperCase() + lijekRijec.slice(1), doza, promjena: t.promjena, od: kada ? kada.iso : null },
+          podaci: { lijek: poznat || velikoSlovo(lijekRijec), doza, promjena: t.promjena, od: kada ? kada.iso : null },
           izvor: s.izvor, od: s.od
         });
+      }
+    }
+
+    // 3b. "spironolakton (je) ukinut": lijek ispred okidača, samo za lijekove iz terapije pacijenta
+    if (lijekovi && lijekovi.length) {
+      const imena = lijekovi.map((l) => escRe(l.split(/\s+/)[0])).join('|');
+      const iza = re(`${PRIJE}(${imena})[${L}]*\\s+(?:je\\s+)?(?:${UKINUT_IZA})${POSLIJE}`);
+      for (const m of tekst.matchAll(iza)) {
+        const s = isjecak(m);
+        if (preklapa(s, zauzeto)) continue;
+        const poznat = lijekovi.find((l) => istiLijek(l.split(/\s+/)[0], m[1]));
+        zauzeto.push(s);
+        polja.push({ vrsta: 'terapija', podaci: { lijek: poznat, doza: '', promjena: 'ukinut', od: null }, izvor: s.izvor, od: s.od });
       }
     }
 

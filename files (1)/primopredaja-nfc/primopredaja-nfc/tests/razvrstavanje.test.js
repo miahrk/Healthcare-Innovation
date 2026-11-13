@@ -199,3 +199,45 @@ test('nesvrstani dijelovi spojeni su s "…" da se vidi što je izvučeno', () =
   const r = razvrstaj('pacijent Ivo Perić tlak 100 na 60 diureza slaba');
   assert.equal(polje(r, 'biljeska').podaci.tekst, 'Pacijent Ivo Perić … diureza slaba.');
 });
+
+// ---------- kontekst: lijekovi koje pacijent trenutno ima ----------
+const razvrstajUz = (t, lijekovi) => JSON.parse(JSON.stringify(R.razvrstaj(t, SADA, { lijekovi })));
+const IVO = ['Furosemid', 'Bisoprolol', 'Spironolakton'];
+
+test('"ukinut zbog ..." nikad ne daje lijek "Zbog"', () => {
+  const r = razvrstaj('lijek ukinut zbog hiperkalijemije');
+  assert.equal(polje(r, 'terapija'), undefined);
+  assert.deepEqual(r.napomene, []);
+});
+
+test('uz kontekst: naziv lijeka iz terapije pacijenta, i za genitiv', () => {
+  const r = razvrstajUz('smanjena doza furosemida na 20 mg i.v.', IVO);
+  assert.equal(polje(r, 'terapija').podaci.lijek, 'Furosemid');
+});
+
+test('uz kontekst: ne može se ukinuti lijek koji pacijent nema', () => {
+  const r = razvrstajUz('ukinut metformin', IVO);
+  assert.equal(polje(r, 'terapija'), undefined);
+  assert.match(r.napomene[0], /Lijek „metformin” nije u terapiji pacijenta/);
+  assert.match(polje(r, 'biljeska').podaci.tekst, /ukinut metformin/i);
+});
+
+test('uz kontekst: uvesti se može i novi lijek', () => {
+  const r = razvrstajUz('uveden pantoprazol 40 mg i.v.', IVO);
+  assert.equal(polje(r, 'terapija').podaci.lijek, 'Pantoprazol');
+});
+
+test('uz kontekst: "spironolakton ukinut" (lijek ispred okidača)', () => {
+  const r = razvrstajUz('spironolakton ukinut zbog hiperkalijemije', IVO);
+  assert.deepEqual(polje(r, 'terapija').podaci, { lijek: 'Spironolakton', doza: '', promjena: 'ukinut', od: null });
+  assert.equal(polje(r, 'biljeska').podaci.tekst, 'Zbog hiperkalijemije.');
+  // bez konteksta se lijek ispred okidača ne prepoznaje: sve ostaje bilješka
+  assert.deepEqual(vrste(razvrstaj('spironolakton ukinut zbog hiperkalijemije')), ['biljeska']);
+});
+
+test('"bilješka:" do kraja rečenice je izričito bilješka, ostatak se razvrstava', () => {
+  const r = razvrstajUz('bilješka: spironolakton ukinut zbog hiperkalijemije. puls 80', IVO);
+  assert.deepEqual(vrste(r), ['biljeska', 'vitali']);
+  assert.equal(polje(r, 'biljeska').podaci.tekst, 'Spironolakton ukinut zbog hiperkalijemije.');
+  assert.equal(polje(r, 'terapija'), undefined);
+});
