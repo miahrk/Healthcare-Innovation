@@ -69,7 +69,7 @@ p { margin: 0 0 0.5rem; }
 a { color: var(--tinta); text-underline-offset: 3px; }
 code { font-size: 0.95em; }
 
-button, input, textarea, select { font: inherit; color: inherit; }
+button, input, textarea { font: inherit; color: inherit; }
 
 :focus-visible { outline: 3px solid var(--fokus); outline-offset: 2px; }
 

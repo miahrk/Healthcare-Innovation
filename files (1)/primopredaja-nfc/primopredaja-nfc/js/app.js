@@ -174,24 +174,17 @@
     return { upoz, razina: P.procjena(p, upoz) };
   }
 
-  function pacijentiOdjela(odjel) {
-    return D.pacijenti
-      .filter((p) => p.odjel === odjel)
-      .map((p) => ({ p, ...stanjePacijenta(p) }))
-      .sort((a, b) => b.razina - a.razina || a.p.soba.localeCompare(b.p.soba) || a.p.krevet.localeCompare(b.p.krevet));
-  }
-
   function ekranOdjel(k) {
     const pre = preuzimanja();
-    const lista = pacijentiOdjela(k.odjel);
+    const lista = D.pacijenti
+      .filter((p) => p.odjel === k.odjel)
+      .map((p) => ({ p, ...stanjePacijenta(p) }))
+      .sort((a, b) => b.razina - a.razina || a.p.soba.localeCompare(b.p.soba) || a.p.krevet.localeCompare(b.p.krevet));
+
     const preuzeto = lista.filter((x) => pre[x.p.tag]).length;
     const posto = lista.length ? Math.round((preuzeto / lista.length) * 100) : 0;
-    const redovi = redoviPacijenata(lista, pre);
-    return ekranOdjelHtml(k, lista, preuzeto, posto, redovi);
-  }
 
-  function redoviPacijenata(lista, pre) {
-    return lista.map(({ p, upoz, razina }) => {
+    const redovi = lista.map(({ p, upoz, razina }) => {
       const zaPotvrdu = upoz.filter((u) => u.razina !== 'info').length;
       const prx = pre[p.tag];
       const oznaka = prx
@@ -213,9 +206,7 @@
           </button>
         </li>`;
     }).join('');
-  }
 
-  function ekranOdjelHtml(k, lista, preuzeto, posto, redovi) {
     return `
       ${zaglavlje(k, 'odjel')}
       <main>
@@ -235,7 +226,7 @@
           <p class="tiho mali-tekst">Kraj smjene u ${vr(D.krajSmjene)}. Poredano po hitnosti.</p>
         </section>
 
-        ${lista.length ? `<ol class="pacijenti">${redovi}</ol>` : '<p class="tiho">Na odjelu nema pacijenata.</p>'}
+        <ol class="pacijenti">${redovi}</ol>
 
         <p class="dno">
           <button type="button" class="poveznica" data-akcija="reset">Nova primopredaja (obriši preuzimanja, potvrde i bilješke)</button><br>
