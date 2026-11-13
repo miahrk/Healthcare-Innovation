@@ -53,25 +53,8 @@
       { id: 'S01', ime: 'dr. Ana Kovač', uloga: 'voditeljica odjela', odjel: 'INT-B', pin: '1111', rola: 'voditelj' },
       { id: 'S02', ime: 'dr. Luka Radić', uloga: 'dežurni liječnik', odjel: 'INT-B', pin: '2222', rola: 'lijecnik' },
       { id: 'S03', ime: 'Ivana Tomić', uloga: 'medicinska sestra', odjel: 'INT-B', pin: '3333', rola: 'sestra' },
-      { id: 'S04', ime: 'dr. Marko Grgić', uloga: 'kirurg', odjel: 'KIR-A', pin: '4444', rola: 'lijecnik' },
-      { id: 'S05', ime: 'Petra Horvat', uloga: 'medicinska sestra', odjel: 'INT-B', pin: '5555', rola: 'sestra' },
-      { id: 'S06', ime: 'Tomislav Babić', uloga: 'medicinski tehničar', odjel: 'INT-B', pin: '6666', rola: 'sestra' },
-      { id: 'S07', ime: 'dr. Nina Perković', uloga: 'specijalizantica interne medicine', odjel: 'INT-B', pin: '7777', rola: 'lijecnik' },
-      { id: 'S08', ime: 'dr. Ivan Matić', uloga: 'kirurg', odjel: 'KIR-A', pin: '8888', rola: 'lijecnik' },
-      { id: 'S09', ime: 'Maja Knežević', uloga: 'medicinska sestra', odjel: 'KIR-A', pin: '1212', rola: 'sestra' },
-      { id: 'S10', ime: 'Dario Vuković', uloga: 'medicinski tehničar', odjel: 'KIR-A', pin: '1313', rola: 'sestra' },
-      { id: 'S11', ime: 'Lucija Pavić', uloga: 'medicinska sestra', odjel: 'KIR-A', pin: '1414', rola: 'sestra' },
-      { id: 'S12', ime: 'dr. Helena Šarić', uloga: 'voditeljica odjela, kirurginja', odjel: 'KIR-A', pin: '1515', rola: 'voditelj' }
+      { id: 'S04', ime: 'dr. Marko Grgić', uloga: 'kirurg', odjel: 'KIR-A', pin: '4444', rola: 'lijecnik' }
     ],
-
-    // Smjene po 12 sati. Zadani raspored je rotacija dnevna -> noćna -> slobodan dan,
-    // posebno za liječnike i za sestre/tehničare, redom kojim su navedeni gore. Tako danas
-    // dr. Kovač i sestra Tomić predaju smjenu, a dr. Radić preuzima noćnu.
-    // Administrator i voditelj odjela mogu raspored mijenjati na stranici Raspored.
-    smjene: {
-      dnevna: { naziv: 'Dnevna', od: '07:00', do: '19:00' },
-      nocna: { naziv: 'Noćna', od: '19:00', do: '07:00' }
-    },
 
     // "tag" je anonimni ID zapisan na NFC narukvici. Na narukvici nema imena ni medicinskih podataka.
     pacijenti: [

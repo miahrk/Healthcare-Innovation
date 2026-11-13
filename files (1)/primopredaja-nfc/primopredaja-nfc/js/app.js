@@ -27,8 +27,6 @@
   const potvrde = {};        // tag -> Set ID-eva potvrđenih upozorenja na otvorenoj kartici
   const pristup = {};        // tag -> { nacin: 'nfc' | 'rucno', u: ISO }
   const aiSazeci = {};       // tag -> { sazetak, izvori }
-  let tjedanPomak = 0;       // raspored: 0 = ovaj tjedan, -1 = prošli, 1 = sljedeći
-  let rasporedOdjel = null;  // raspored: odjel koji administrator gleda
 
   // ---------- pomoćne funkcije ----------
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -83,7 +81,6 @@
   const vidiPacijenta = (k, p) => ima(k, 'sviOdjeli') || (radiNaOdjelu(k) && !!k.odjel && p.odjel === k.odjel);
   // Smije li mijenjati zapise pacijenta (samo osoblje njegova odjela; konkretno pravo se provjerava posebno)
   const smijeMijenjati = (k, p) => radiNaOdjelu(k) && !!k.odjel && p.odjel === k.odjel;
-  const mozeRaspored = (k, odjel) => !!k && (k.admin || (ima(k, 'raspored') && k.odjel === odjel));
 
   // Trenutno vrijeme za zapise: stvarno vrijeme, ali nikad prije demo-vremena smjene
   function sadaZaZapis() {
@@ -263,7 +260,6 @@
     if (r.ime === 'profil') return prikazi(ekranProfil(r, k), zadrziPolozaj);
     if (r.ime === 'unos') return prikazi(ekranUnos(r, k), zadrziPolozaj);
     if (r.ime === 'zapisnik') return prikazi(ekranZapisnik(k));
-    if (r.ime === 'raspored') return prikazi(ekranRaspored(k), zadrziPolozaj);
     // Administrator upravlja djelatnicima i odjelima, ali ne vidi pacijente.
     if (k.admin) return prikazi(ekranAdmin(k), zadrziPolozaj);
     // Ravnatelj vidi sve odjele, ali ništa ne mijenja.
@@ -290,7 +286,6 @@
             : ima(k, 'sviOdjeli')
               ? veza('bolnica', 'Odjeli')
               : veza('odjel', 'Odjel') + veza('narukvice', 'Narukvice')}
-          ${veza('raspored', 'Raspored')}
           ${veza('zapisnik', 'Zapisnik')}
           <button type="button" class="poveznica" data-akcija="odjava">Odjava</button>
         </nav>
@@ -387,7 +382,6 @@
             <span style="width:${posto}%"></span>
           </div>
           <p class="tiho mali-tekst">Kraj smjene u ${vr(D.smjena.do)}. Poredano po hitnosti.</p>
-          ${sljedecaSmjenaHtml(k.odjel)}
         </section>
 
         <div class="traka-alata">
@@ -1299,153 +1293,7 @@
     idi('profil=' + encodeURIComponent(tag));
   }
 
-  // ---------- raspored smjena ----------
-  const danasDemo = () => { const d = new Date(D.sada); d.setHours(0, 0, 0, 0); return d; };
   const osobljeOdjela = (odjel) => D.djelatnici.filter((d) => radiNaOdjelu(d) && d.odjel === odjel);
-  const DANI = ['nedjelja', 'ponedjeljak', 'utorak', 'srijeda', 'četvrtak', 'petak', 'subota'];
-
-  function daniTjedna(pomak) {
-    const pon = danasDemo();
-    pon.setDate(pon.getDate() - ((pon.getDay() + 6) % 7) + 7 * pomak);
-    return Array.from({ length: 7 }, (_, i) => { const d = new Date(pon); d.setDate(pon.getDate() + i); return d; });
-  }
-
-  // Zadani raspored: svaka skupina (liječnici, sestre/tehničari) se vrti po ciklusu
-  // dnevna -> noćna -> slobodan dan. Dan 0 je današnji dan demoa.
-  function zadanaSmjena(odjel, d, smjena) {
-    const dan = Math.round((d - danasDemo()) / 86400000);
-    const poz = smjena === 'dnevna' ? 0 : 1;
-    const osoblje = osobljeOdjela(odjel);
-    const uSmjeni = (skupina) => skupina.filter((_, j) => (((dan + j) % 3) + 3) % 3 === poz).map((x) => x.id);
-    return [
-      ...uSmjeni(osoblje.filter((x) => jeLijecnik(x))),
-      ...uSmjeni(osoblje.filter((x) => !jeLijecnik(x)))
-    ];
-  }
-
-  const kljucSmjene = (odjel, d, smjena) => `${odjel}|${kljucDatuma(d)}|${smjena}`;
-
-  function smjena(odjel, d, vrsta) {
-    const spremljeno = store.get('raspored', {})[kljucSmjene(odjel, d, vrsta)];
-    const ids = spremljeno || zadanaSmjena(odjel, d, vrsta);
-    // prikazuju se samo djelatnici koji su trenutno na tom odjelu
-    return ids.map(djelatnik).filter((x) => x && x.odjel === odjel);
-  }
-
-  function spremiSmjenu(kljuc, ids) {
-    const sve = store.get('raspored', {});
-    sve[kljuc] = ids;
-    store.set('raspored', sve);
-  }
-
-  function sljedecaSmjenaHtml(odjel) {
-    if (!odjel) return '';
-    const s = D.smjene.nocna;
-    const osobe = smjena(odjel, danasDemo(), 'nocna');
-    return `<p class="mali-tekst">Noćnu smjenu (${s.od}–${s.do}) preuzima:
-      ${osobe.length ? osobe.map((d) => esc(d.ime)).join(', ') : '<strong>nitko nije u rasporedu</strong>'}.
-      <a href="#raspored">Raspored</a></p>`;
-  }
-
-  // Upozorenja za jednu smjenu: pokrivenost i odmor između smjena
-  function provjeraSmjene(osobe, vrsta, istiDanDrugaSmjena, prethodnaNocna) {
-    const out = [];
-    if (!osobe.some((d) => jeLijecnik(d))) out.push('Nema liječnika u smjeni.');
-    if (!osobe.some((d) => !jeLijecnik(d))) out.push('Nema medicinske sestre ni tehničara.');
-    osobe.forEach((d) => {
-      if (vrsta === 'nocna' && istiDanDrugaSmjena.includes(d.id)) out.push(`${d.ime} radi dnevnu i noćnu zaredom (24 h).`);
-      if (vrsta === 'dnevna' && prethodnaNocna.includes(d.id)) out.push(`${d.ime} dolazi na dnevnu odmah nakon noćne.`);
-    });
-    return out;
-  }
-
-  function ekranRaspored(k) {
-    const odjeli = Object.keys(D.odjeli);
-    // Administrator i ravnatelj biraju odjel; ostali vide svoj
-    const sviOdjeli = k.admin || ima(k, 'sviOdjeli');
-    const odjel = sviOdjeli ? (rasporedOdjel && D.odjeli[rasporedOdjel] ? rasporedOdjel : odjeli[0]) : k.odjel;
-    if (!odjel) {
-      return ekranPoruka(k, 'Raspored smjena', 'Niste raspoređeni ni na jedan odjel. Javite se administratoru.');
-    }
-    const uredi = mozeRaspored(k, odjel);
-    const dani = daniTjedna(tjedanPomak);
-    const danas = kljucDatuma(danasDemo());
-    const osoblje = osobljeOdjela(odjel);
-    const moje = [];
-
-    const daniHtml = dani.map((d) => {
-      const juceri = new Date(d); juceri.setDate(d.getDate() - 1);
-      const dnevna = smjena(odjel, d, 'dnevna');
-      const nocna = smjena(odjel, d, 'nocna');
-      const jucerNocna = smjena(odjel, juceri, 'nocna').map((x) => x.id);
-      const jeDanas = kljucDatuma(d) === danas;
-      const nazivDana = `${DANI[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`;
-
-      const smjenaHtml = (vrsta, osobe) => {
-        const s = D.smjene[vrsta];
-        const kljuc = kljucSmjene(odjel, d, vrsta);
-        if (osobe.some((x) => x.id === k.id)) moje.push(`${nazivDana}, ${s.naziv.toLowerCase()} ${s.od}–${s.do}`);
-        const upoz = provjeraSmjene(osobe, vrsta, dnevna.map((x) => x.id), jucerNocna);
-        const slobodni = osoblje.filter((x) => !osobe.some((o) => o.id === x.id));
-        return `
-          <div class="smjena ${vrsta}">
-            <p class="smjena-naziv"><strong>${s.naziv}</strong> <span class="tiho">${s.od}–${s.do}</span></p>
-            <ul class="osobe">
-              ${osobe.map((x) => `
-                <li class="osoba ${jeLijecnik(x) ? 'lijecnik' : 'sestra'}${x.id === k.id ? ' ja' : ''}">
-                  <span>${esc(x.ime)}${x.id === k.id ? ' (vi)' : ''}</span>
-                  ${uredi ? `<button type="button" data-akcija="makni-iz-smjene" data-kljuc="${esc(kljuc)}" data-id="${esc(x.id)}"
-                    aria-label="Ukloni ${esc(x.ime)} iz smjene: ${nazivDana}, ${s.naziv.toLowerCase()}">×</button>` : ''}
-                </li>`).join('') || '<li class="tiho">nitko</li>'}
-            </ul>
-            ${upoz.length ? `<ul class="smjena-upoz">${upoz.map((u) => `<li>${esc(u)}</li>`).join('')}</ul>` : ''}
-            ${uredi && slobodni.length ? `
-              <select data-promjena="dodaj-u-smjenu" data-kljuc="${esc(kljuc)}" aria-label="Dodaj djelatnika: ${nazivDana}, ${s.naziv.toLowerCase()} smjena">
-                <option value="">+ dodaj djelatnika</option>
-                ${slobodni.map((x) => `<option value="${esc(x.id)}">${esc(x.ime)} (${esc(x.uloga)})</option>`).join('')}
-              </select>` : ''}
-          </div>`;
-      };
-
-      return `
-        <li class="dan${jeDanas ? ' danas' : ''}">
-          <h2>${nazivDana}${jeDanas ? ' <span class="oznaka ok">danas</span>' : ''}</h2>
-          <div class="smjene">${smjenaHtml('dnevna', dnevna)}${smjenaHtml('nocna', nocna)}</div>
-        </li>`;
-    }).join('');
-
-    const prvi = dani[0];
-    const zadnji = dani[6];
-    return `
-      ${zaglavlje(k, 'raspored')}
-      <main>
-        <h1 data-fokus tabindex="-1">Raspored smjena</h1>
-        ${sviOdjeli ? `
-          <label for="raspored-odjel">Odjel</label>
-          <select id="raspored-odjel" data-promjena="raspored-odjel">
-            ${odjeli.map((o) => `<option value="${esc(o)}" ${o === odjel ? 'selected' : ''}>${esc(D.odjeli[o])}</option>`).join('')}
-          </select>` : `<p class="tiho">${esc(D.odjeli[odjel])}.</p>`}
-        <p class="tiho mali-tekst">${uredi
-          ? 'Dodajte ili uklonite djelatnike iz smjene. Sustav upozorava na smjenu bez liječnika ili sestre i na rad bez odmora.'
-          : 'Raspored mijenja voditelj odjela ili administrator.'}</p>
-
-        <div class="tjedan-nav">
-          <button type="button" class="gumb sporedni mali" data-akcija="tjedan" data-pomak="-1" aria-label="Prethodni tjedan">‹</button>
-          <p><strong>${prvi.getDate()}. ${prvi.getMonth() + 1}. – ${zadnji.getDate()}. ${zadnji.getMonth() + 1}. ${zadnji.getFullYear()}.</strong>
-            ${tjedanPomak !== 0 ? '<button type="button" class="poveznica" data-akcija="tjedan" data-pomak="0">ovaj tjedan</button>' : ''}</p>
-          <button type="button" class="gumb sporedni mali" data-akcija="tjedan" data-pomak="1" aria-label="Sljedeći tjedan">›</button>
-        </div>
-
-        ${sviOdjeli ? '' : `
-          <section class="moje-smjene">
-            <h2>Vaše smjene ovaj tjedan</h2>
-            ${moje.length ? `<ul>${moje.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : '<p class="tiho">Ovaj tjedan nemate smjena.</p>'}
-          </section>`}
-
-        <ol class="raspored">${daniHtml}</ol>
-        <p class="tiho mali-tekst legenda"><span class="osoba lijecnik">liječnik</span> <span class="osoba sestra">sestra / tehničar</span></p>
-      </main>`;
-  }
 
   // 1 pacijent, 2 pacijenta, 5 pacijenata (21 pacijent, 12 pacijenata)
   function mnozina(n, jedan, dva, pet = dva) {
@@ -1921,19 +1769,6 @@
         zabiljezi('nova primopredaja');
         render();
       }
-    } else if (a === 'tjedan') {
-      const pomak = Number(b.dataset.pomak);
-      tjedanPomak = pomak === 0 ? 0 : tjedanPomak + pomak;
-      render(true);
-    } else if (a === 'makni-iz-smjene') {
-      const kljuc = b.dataset.kljuc;
-      const [odjel, dat, vrsta] = kljuc.split('|');
-      if (!mozeRaspored(k, odjel)) return;
-      const d = new Date(dat + 'T00:00');
-      const ids = smjena(odjel, d, vrsta).map((x) => x.id).filter((id) => id !== b.dataset.id);
-      spremiSmjenu(kljuc, ids);
-      zabiljezi('izmjena rasporeda', null, `${imeDjelatnika(b.dataset.id)} uklonjen/a: ${odjel}, ${datum(dat)}, ${D.smjene[vrsta].naziv.toLowerCase()}`);
-      render(true);
     } else if (a === 'ukloni-profil') {
       const p = pacijent(tag);
       if (!p || !smijeMijenjati(k, p) || !ima(k, 'profil')) return;
@@ -2071,18 +1906,6 @@
       store.set('odjeliDjelatnika', { ...store.get('odjeliDjelatnika', {}), [d.id]: d.odjel });
       zabiljezi('promjena odjela', null, `${d.ime}: ${staro || 'bez odjela'} → ${d.odjel || 'bez odjela'}`);
       obavijest(`${d.ime}: ${d.odjel ? D.odjeli[d.odjel] : 'bez odjela'}.`);
-      render(true);
-    } else if (vrsta === 'raspored-odjel') {
-      if (!k.admin && !ima(k, 'sviOdjeli')) return;
-      rasporedOdjel = el.value;
-      render(true);
-    } else if (vrsta === 'dodaj-u-smjenu' && el.value) {
-      const kljuc = el.dataset.kljuc;
-      const [odjel, dat, smj] = kljuc.split('|');
-      if (!mozeRaspored(k, odjel)) return;
-      const ids = smjena(odjel, new Date(dat + 'T00:00'), smj).map((x) => x.id);
-      spremiSmjenu(kljuc, [...ids, el.value]);
-      zabiljezi('izmjena rasporeda', null, `${imeDjelatnika(el.value)} dodan/a: ${odjel}, ${datum(dat)}, ${D.smjene[smj].naziv.toLowerCase()}`);
       render(true);
     }
   });

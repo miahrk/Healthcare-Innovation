@@ -337,8 +337,6 @@ td:first-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
   margin-top: 1.5rem;
 }
 .traka-alata h2 { margin: 0; }
-.napredak a { white-space: nowrap; }
-
 details.dodaj { margin-top: 0.6rem; }
 details.dodaj summary { cursor: pointer; font-weight: 700; color: var(--tiho); padding: 0.35rem 0; }
 details.dodaj[open] summary { color: var(--tinta); }
@@ -394,53 +392,6 @@ details.dodaj .forma {
 }
 .djelatnici-lista label { display: grid; cursor: pointer; }
 @media (max-width: 30rem) { .djelatnici-lista li { grid-template-columns: 1fr; } }
-
-/* ---------- raspored smjena ---------- */
-#raspored-odjel { max-width: 22rem; margin: 0.25rem 0 0.5rem; display: block; }
-label[for="raspored-odjel"] { font-weight: 700; }
-.tjedan-nav {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-  margin: 1rem 0; padding: 0.5rem 0; border-block: 1px solid var(--crta);
-}
-.tjedan-nav p { margin: 0; text-align: center; }
-.tjedan-nav .gumb { min-width: 2.75rem; font-size: 1.25rem; }
-.tjedan-nav .poveznica { display: block; margin: 0 auto; font-size: 0.9rem; }
-
-.moje-smjene { padding: 0.75rem 1rem; background: var(--povrsina); border-radius: 0.75rem; margin-bottom: 1rem; }
-.moje-smjene ul { margin: 0; padding-left: 1.25rem; }
-
-.raspored { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
-.dan {
-  padding: 0.75rem 1rem 1rem; background: var(--povrsina);
-  border: 1px solid var(--crta); border-radius: 0.75rem;
-}
-.dan.danas { border: 2px solid var(--tinta); }
-.dan h2 { text-transform: capitalize; font-size: 1.05rem; display: flex; gap: 0.5rem; align-items: center; }
-.dan h2 .oznaka { text-transform: none; }
-.smjene { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-@media (max-width: 30rem) { .smjene { grid-template-columns: 1fr; } }
-.smjena { display: grid; gap: 0.4rem; align-content: start; min-width: 0; }
-.smjena-naziv { margin: 0; }
-.smjena.nocna .smjena-naziv strong::before { content: '☾ '; color: var(--tiho); }
-.smjena.dnevna .smjena-naziv strong::before { content: '☀ '; color: var(--tiho); }
-.osobe { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.osoba {
-  display: inline-flex; align-items: center; gap: 0.25rem;
-  font-size: 0.9rem; padding: 0.15rem 0.55rem; border-radius: 99px;
-  border: 1px solid var(--crta); background: var(--papir);
-}
-.osoba.lijecnik { border-left: 4px solid var(--fokus); }
-.osoba.sestra { border-left: 4px solid var(--ok); }
-.osoba.ja { font-weight: 700; border-color: var(--tinta); }
-.osoba button {
-  border: 0; background: none; cursor: pointer; color: var(--tiho);
-  font-size: 1.1rem; line-height: 1; padding: 0 0.15rem; min-width: 1.5rem; min-height: 1.5rem;
-}
-.osoba button:hover { color: var(--kriticno); }
-.smjena-upoz { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; color: var(--upoz); font-weight: 700; }
-.smjena-upoz li::before { content: '! '; }
-.smjena select { min-height: 2.5rem; font-size: 0.9rem; }
-.legenda { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
 /* ---------- uloge ---------- */
 .uloga-oznaka {
