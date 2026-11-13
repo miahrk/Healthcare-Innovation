@@ -66,6 +66,14 @@
     return P.vrijemeDatum(iso);
   }
 
+  // Način otvaranja kartice: pravo skeniranje, simulirano skeniranje (demo bez čitača) ili ručno
+  const NACIN_OPIS = {
+    nfc: 'uz skeniranje narukvice',
+    sim: 'uz simulirano skeniranje narukvice',
+    rucno: 'bez skeniranja narukvice'
+  };
+  const SIM_DETALJ = 'simulirano skeniranje (demo bez NFC čitača)';
+
   const biljeskeUzKrevet = (tag) => store.get('biljeske', {})[tag] || [];
   const preuzimanja = () => store.get('preuzimanja', {});
 
@@ -89,7 +97,11 @@
     const h = location.hash.replace(/^#/, '');
     if (h.includes('=')) {
       const par = new URLSearchParams(h);
-      if (par.get('p')) return { ime: 'kartica', tag: par.get('p'), nfc: par.get('nfc') === '1' };
+      if (par.get('p')) {
+        // sim=1: skeniranje je simulirano u demou (nema NFC čitača), ali se ponaša kao skeniranje
+        const nfc = par.get('nfc') === '1';
+        return { ime: 'kartica', tag: par.get('p'), nfc, sim: nfc && par.get('sim') === '1' };
+      }
     }
     return { ime: h || 'odjel' };
   }
@@ -247,7 +259,7 @@
     if (!vidiPacijenta(k, p)) {
       if (r.nfc || !pristup['odbijeno-' + p.tag]) {
         pristup['odbijeno-' + p.tag] = true;
-        zabiljezi('odbijen pristup', p.tag, `pacijent nije na odjelu ${k.odjel}`);
+        zabiljezi('odbijen pristup', p.tag, `pacijent nije na odjelu ${k.odjel}${r.sim ? ', ' + SIM_DETALJ : ''}`);
         if (r.nfc) history.replaceState(null, '', '#p=' + encodeURIComponent(p.tag));
       }
       return ekranPoruka(k, 'Nemate pristup ovom pacijentu',
@@ -267,10 +279,10 @@
     if (odbijeno) return odbijeno;
     const p = pacijent(r.tag);
 
-    // Način pristupa: skeniranjem ili ručno. Bilježi se jednom po otvaranju.
+    // Način pristupa: skeniranjem (pravim ili simuliranim) ili ručno. Bilježi se jednom po otvaranju.
     if (r.nfc) {
-      pristup[p.tag] = { nacin: 'nfc', u: sadaZaZapis() };
-      zabiljezi('skenirana narukvica', p.tag);
+      pristup[p.tag] = { nacin: r.sim ? 'sim' : 'nfc', u: sadaZaZapis() };
+      zabiljezi('skenirana narukvica', p.tag, r.sim ? SIM_DETALJ : '');
       history.replaceState(null, '', '#p=' + encodeURIComponent(p.tag));
     } else if (!pristup[p.tag]) {
       pristup[p.tag] = { nacin: 'rucno', u: sadaZaZapis() };
@@ -344,7 +356,7 @@
     const preuzimanjeHtml = pre
       ? `<div class="preuzeto">
            <p><strong>Preuzeo/la ${esc(imeDjelatnika(pre.tko))} u ${vr(pre.u)}</strong>,
-           ${pre.nacin === 'nfc' ? 'uz skeniranje narukvice' : 'bez skeniranja narukvice'}.</p>
+           ${NACIN_OPIS[pre.nacin] || NACIN_OPIS.rucno}.</p>
            <button type="button" class="poveznica" data-akcija="ponisti" data-tag="${esc(p.tag)}">Poništi preuzimanje</button>
          </div>`
       : `<button type="button" class="gumb preuzmi" data-akcija="preuzmi" data-tag="${esc(p.tag)}" ${sveSpremno ? '' : 'disabled'}>Preuzmi pacijenta</button>
@@ -368,7 +380,9 @@
         <p class="identitet ${nacin.nacin}">
           ${nacin.nacin === 'nfc'
             ? `Identitet potvrđen narukvicom u ${vr(nacin.u)}`
-            : 'Otvoreno ručno, bez skeniranja narukvice'}
+            : nacin.nacin === 'sim'
+              ? `Simulirano skeniranje narukvice u ${vr(nacin.u)} (demo bez NFC čitača)`
+              : 'Otvoreno ručno, bez skeniranja narukvice'}
         </p>
         ${alergijeTrakaHtml(p)}
       </header>
@@ -522,13 +536,37 @@
     dozvola: 'Preglednik nema dozvolu za NFC. Dopustite NFC u postavkama stranice i pokušajte ponovno.'
   };
 
+  // Simulacija skeniranja za demo bez NFC čitača: popis svih demo narukvica.
+  // Narukvice s drugog odjela prikazuju se bez imena, za demo odbijenog pristupa.
+  function simulacijaHtml(k) {
+    const gumbi = D.pacijenti.map((p) => {
+      const opis = p.odjel === k.odjel
+        ? `Soba ${esc(p.soba)}, krevet ${esc(p.krevet)}: ${esc(p.ime)}`
+        : 'Narukvica s drugog odjela';
+      return `
+        <li>
+          <button type="button" class="gumb sporedni mali" data-akcija="simuliraj" data-tag="${esc(p.tag)}">
+            <span>${opis}</span> <code>${esc(p.tag)}</code>
+          </button>
+        </li>`;
+    }).join('');
+    return `
+      <p class="tiho mali-tekst">Odabir narukvice ponaša se kao skeniranje, a na kartici i u zapisniku piše da je skeniranje simulirano.</p>
+      <ul class="sim-lista">${gumbi}</ul>`;
+  }
+
   function pokreniSkeniranje() {
+    const k = korisnik();
     if (N.podrzan) {
       otvoriSloj(`
         ${valovi(true)}
         <h2 id="sloj-naslov">Prislonite mobitel na narukvicu</h2>
         <p class="tiho">Stražnji dio mobitela, blizu kamere, držite uz narukvicu.</p>
         <p class="greska" id="sken-greska" role="alert"></p>
+        <details class="sim">
+          <summary>Nemate narukvicu? Simulirajte skeniranje</summary>
+          ${simulacijaHtml(k)}
+        </details>
         <button type="button" class="gumb sporedni" data-akcija="zatvori-sloj">Odustani</button>`);
       N.skeniraj(
         (tag) => { zatvoriSloj(); delete pristup[tag]; idi(`p=${encodeURIComponent(tag)}&nfc=1`); },
@@ -539,9 +577,11 @@
         ${valovi(false)}
         <h2 id="sloj-naslov">Ovaj preglednik ne čita NFC</h2>
         <p class="tiho">Skeniranje u aplikaciji radi u Chromeu na Androidu. Na iPhoneu prislonite mobitel na narukvicu bez otvaranja aplikacije: otvorit će se poveznica s narukvice.</p>
+        <h3 class="sim-naslov">Simulacija za demo: odaberite narukvicu</h3>
+        ${simulacijaHtml(k)}
         <form id="forma-rucno">
-          <label for="rucni-id">Ili upišite ID s narukvice</label>
-          <input id="rucni-id" name="tagid" autocomplete="off" required data-fokus placeholder="npr. k7m2q9xa">
+          <label for="rucni-id">Ili upišite ID s narukvice (bilježi se kao ručno otvaranje)</label>
+          <input id="rucni-id" name="tagid" autocomplete="off" required placeholder="npr. k7m2q9xa">
           <button type="submit" class="gumb">Otvori karticu</button>
         </form>
         <button type="button" class="gumb sporedni" data-akcija="zatvori-sloj">Odustani</button>`);
@@ -622,6 +662,10 @@
       pokreniSkeniranje();
     } else if (a === 'zatvori-sloj') {
       zatvoriSloj();
+    } else if (a === 'simuliraj') {
+      zatvoriSloj();
+      delete pristup[tag];
+      idi(`p=${encodeURIComponent(tag)}&nfc=1&sim=1`);
     } else if (a === 'otvori') {
       delete pristup[tag];
       idi('p=' + encodeURIComponent(tag));
@@ -636,7 +680,7 @@
       const nacin = (pristup[tag] && pristup[tag].nacin) || 'rucno';
       pre[tag] = { tko: k.id, u: sadaZaZapis(), nacin, potvrdena: [...(potvrde[tag] || [])] };
       store.set('preuzimanja', pre);
-      zabiljezi('preuzet pacijent', tag, nacin === 'nfc' ? 'uz skeniranje narukvice' : 'bez skeniranja narukvice');
+      zabiljezi('preuzet pacijent', tag, NACIN_OPIS[nacin] || NACIN_OPIS.rucno);
       obavijest(`Pacijent ${pacijent(tag).ime} je preuzet.`);
       idi('odjel');
     } else if (a === 'ponisti') {
