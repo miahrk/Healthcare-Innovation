@@ -1,164 +1,319 @@
-/*
- * Paleta "papir za temperaturnu listu": blijedo sivozelena podloga, tinta tamnoplava,
- * a boja se koristi samo za rizik (crvena, jantarna, zelena).
- * Tamni način je za noćnu smjenu, da ekran ne zasljepljuje pacijente u sobi.
- */
+/* ==========================================================================
+   NurseLink — Premium Desktop & Laptop UI (Lavanda & Ponoćno Plava)
+   ========================================================================== */
+
 :root {
-  --papir: #EDF1EC;
-  --povrsina: #FFFFFF;
-  --tinta: #1C2A44;
-  --tiho: #556072;
-  --crta: #C9D2CA;
-  --kriticno: #B42318;
-  --kriticno-poz: #FCE9E7;
-  --upoz: #8A5300;
-  --upoz-poz: #FBF0DA;
-  --ok: #1F6B45;
-  --ok-poz: #E3F1E8;
-  --fokus: #2456C7;
-  --akcija: #1C2A44;
+  --papir: #F3F0FA;          /* Nježna, bogata lavanda podloga */
+  --povrsina: rgba(255, 255, 255, 0.88); /* Poluprozirna bijela za glass efekt */
+  --povrsina-puna: #FFFFFF;
+  --tinta: #1E1938;          /* Duboka ponoćno-ljubičasta */
+  --tiho: #625B80;           /* Sofisticirana sivo-ljubičasta */
+  --crta: rgba(138, 100, 214, 0.16); /* Suptilni ljubičasti obrubi */
+  
+  /* Statusne boje */
+  --kriticno: #B91C3B;
+  --kriticno-poz: #FCE8EC;
+  --upoz: #C02678;
+  --upoz-poz: #FCE7F3;
+  --ok: #0F766E;
+  --ok-poz: #E6F4F1;
+  
+  /* Brend & Interaktivni akcenti */
+  --fokus: #8A64D6;
+  --akcija: #6338B5;
+  --akcija-gradijent: linear-gradient(135deg, #6B46C1 0%, #B83280 100%);
   --akcija-tekst: #FFFFFF;
-  --sjena-sloja: rgba(12, 18, 28, 0.55);
+  
+  /* Duboke, slojevite sjene za "lebdeći" efekt */
+  --sjena-kartice: 0 10px 30px -5px rgba(30, 25, 56, 0.05), 0 4px 10px -2px rgba(99, 56, 181, 0.04);
+  --sjena-hover: 0 20px 40px -8px rgba(99, 56, 181, 0.16), 0 4px 12px -2px rgba(184, 50, 128, 0.08);
+  --sjena-sloja: rgba(19, 16, 28, 0.6);
+  
+  accent-color: var(--akcija);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --papir: #111923;
-    --povrsina: #18222E;
-    --tinta: #E4EAF1;
-    --tiho: #9AA6B5;
-    --crta: #2B3948;
-    --kriticno: #FF8A7E;
-    --kriticno-poz: #3A1C1A;
-    --upoz: #F0B54A;
-    --upoz-poz: #352914;
-    --ok: #74D19D;
-    --ok-poz: #15301F;
-    --fokus: #8FB0FF;
-    --akcija: #E4EAF1;
-    --akcija-tekst: #111923;
-    --sjena-sloja: rgba(0, 0, 0, 0.7);
+    --papir: #0F0C18;
+    --povrsina: rgba(28, 23, 43, 0.82);
+    --povrsina-puna: #1C172B;
+    --tinta: #F3EFFC;
+    --tiho: #9E96B8;
+    --crta: rgba(167, 139, 250, 0.16);
+    
+    --kriticno: #FB7185;
+    --kriticno-poz: rgba(251, 113, 133, 0.14);
+    --upoz: #F472B6;
+    --upoz-poz: rgba(244, 114, 182, 0.14);
+    --ok: #34D399;
+    --ok-poz: rgba(52, 211, 153, 0.14);
+    
+    --fokus: #C4B5FD;
+    --akcija: #A78BFA;
+    --akcija-gradijent: linear-gradient(135deg, #9F7AEA 0%, #ED64A6 100%);
+    --akcija-tekst: #0F0C18;
+    
+    --sjena-kartice: 0 12px 32px -4px rgba(0, 0, 0, 0.45);
+    --sjena-hover: 0 20px 45px -6px rgba(167, 139, 250, 0.22);
+    --sjena-sloja: rgba(5, 4, 10, 0.8);
+    
     color-scheme: dark;
   }
 }
 
 * { box-sizing: border-box; }
 
+::selection {
+  background-color: var(--akcija);
+  color: var(--akcija-tekst);
+}
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--papir);
+  min-height: 100vh;
+  background-color: var(--papir);
+  /* Ambijentalni "Aurora" sjaj u pozadini za wow efekt na laptopu */
+  background-image: 
+    radial-gradient(at 15% 10%, rgba(138, 100, 214, 0.14) 0px, transparent 45%),
+    radial-gradient(at 85% 25%, rgba(192, 38, 120, 0.10) 0px, transparent 45%),
+    radial-gradient(at 50% 90%, rgba(99, 56, 181, 0.08) 0px, transparent 50%);
+  background-attachment: fixed;
   color: var(--tinta);
   font-family: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 1.0625rem;
-  line-height: 1.5;
-  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  line-height: 1.55;
 }
 
+/* Širi, prostraniji raspored prilagođen za laptop */
 #app {
-  max-width: 44rem;
+  max-width: 66rem;
   margin: 0 auto;
-  padding: 1rem 1rem 5rem;
+  padding: 2rem 2rem 6rem;
 }
 
-h1 { font-size: 1.75rem; line-height: 1.2; margin: 0.25rem 0 0.5rem; }
-h2 { font-size: 1.125rem; line-height: 1.3; margin: 0 0 0.5rem; }
+h1 {
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 0.25rem 0 0.5rem;
+}
+h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  margin: 0 0 0.5rem;
+}
 p { margin: 0 0 0.5rem; }
-a { color: var(--tinta); text-underline-offset: 3px; }
-code { font-size: 0.95em; }
+a { color: var(--akcija); text-underline-offset: 4px; font-weight: 600; }
+code {
+  font-size: 0.9em;
+  background: rgba(138, 100, 214, 0.12);
+  color: var(--akcija);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.4rem;
+  font-weight: 600;
+}
 
 button, input, textarea { font: inherit; color: inherit; }
-
-:focus-visible { outline: 3px solid var(--fokus); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--fokus); outline-offset: 3px; }
 
 .tiho { color: var(--tiho); }
-.mali-tekst { font-size: 0.9rem; }
+.mali-tekst { font-size: 0.875rem; }
 .nevidljivo {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap;
 }
 
-/* ---------- gumbi ---------- */
+/* ---------- Premium Gumbi ---------- */
 .gumb {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-height: 3rem; padding: 0.6rem 1.15rem;
-  border: 2px solid var(--akcija); border-radius: 0.5rem;
-  background: var(--akcija); color: var(--akcija-tekst);
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  min-height: 3.1rem; padding: 0.65rem 1.5rem;
+  border: none; border-radius: 0.9rem;
+  background: var(--akcija-gradijent);
+  color: var(--akcija-tekst);
   font-weight: 700; text-decoration: none; cursor: pointer;
+  box-shadow: 0 6px 18px -2px rgba(99, 56, 181, 0.35);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.gumb.sporedni { background: transparent; color: var(--tinta); }
-.gumb.mali { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.95rem; }
-.gumb:disabled { opacity: 0.4; cursor: not-allowed; }
+.gumb:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 12px 24px -4px rgba(184, 50, 128, 0.4);
+  filter: brightness(1.06);
+}
+.gumb:active:not(:disabled) { transform: translateY(0) scale(0.99); }
+
+.gumb.sporedni {
+  background: var(--povrsina);
+  backdrop-filter: blur(12px);
+  color: var(--tinta);
+  border: 1.5px solid var(--crta);
+  box-shadow: var(--sjena-kartice);
+}
+.gumb.sporedni:hover:not(:disabled) {
+  border-color: var(--akcija);
+  background: var(--povrsina-puna);
+}
+
+.gumb.mali { min-height: 2.5rem; padding: 0.35rem 1rem; font-size: 0.925rem; border-radius: 0.7rem; }
+.gumb:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
 .poveznica {
-  background: none; border: 0; padding: 0.25rem 0; cursor: pointer;
-  color: var(--tinta); text-decoration: underline; text-underline-offset: 3px;
+  background: none; border: 0; padding: 0.4rem 0.75rem; cursor: pointer;
+  color: var(--tiho); text-decoration: none; font-weight: 600; border-radius: 0.65rem;
+  transition: all 0.18s ease;
 }
+.poveznica:hover { color: var(--akcija); background: rgba(138, 100, 214, 0.12); }
 
-/* ---------- zaglavlje ---------- */
+/* ---------- Lebdeće Glassmorphism Zaglavlje ---------- */
 .zaglavlje {
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
-  padding-bottom: 0.9rem; border-bottom: 1px solid var(--crta);
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  padding: 1rem 1.5rem; margin-bottom: 2rem;
+  background: var(--povrsina);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--crta);
+  border-radius: 1.25rem;
+  box-shadow: var(--sjena-kartice);
 }
 .zaglavlje p { margin: 0; }
-.odjel { font-weight: 700; }
-.zaglavlje nav {
-  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.25rem 1rem;
+.odjel {
+  font-weight: 800; font-size: 1.1rem;
+  background: var(--akcija-gradijent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
-.zaglavlje nav [aria-current] { font-weight: 700; }
+.zaglavlje nav {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.4rem 0.75rem;
+}
+.zaglavlje nav [aria-current] {
+  font-weight: 700; color: var(--akcija);
+  background: rgba(138, 100, 214, 0.14);
+  padding: 0.35rem 0.85rem; border-radius: 0.65rem;
+}
 
-/* ---------- NFC valovi: jedini "glasni" element sučelja ---------- */
+/* ---------- NFC Valovi: Sjajni pulsirajući radar ---------- */
 .valovi { position: relative; width: 4.5rem; height: 4.5rem; flex: none; }
 .valovi span {
   position: absolute; inset: 0;
-  border: 3px solid var(--tinta); border-radius: 50%;
+  border: 2.5px solid var(--akcija); border-radius: 50%;
 }
-.valovi span:nth-child(1) { transform: scale(0.3); background: var(--tinta); }
-.valovi span:nth-child(2) { transform: scale(0.65); }
-.valovi span:nth-child(3) { transform: scale(1); }
+.valovi span:nth-child(1) {
+  transform: scale(0.32);
+  background: var(--akcija-gradijent);
+  border: none;
+  box-shadow: 0 0 20px rgba(184, 50, 128, 0.55);
+}
+.valovi span:nth-child(2) { transform: scale(0.66); opacity: 0.55; }
+.valovi span:nth-child(3) { transform: scale(1); opacity: 0.25; }
 
-.valovi.aktivno { width: 8rem; height: 8rem; margin: 0 auto 1.25rem; }
-.valovi.aktivno span:nth-child(n+2) { animation: val 1.8s ease-out infinite; }
-.valovi.aktivno span:nth-child(3) { animation-delay: 0.9s; }
+.valovi.aktivno { width: 9rem; height: 9rem; margin: 0 auto 1.5rem; }
+.valovi.aktivno span:nth-child(n+2) { animation: val 2s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+.valovi.aktivno span:nth-child(3) { animation-delay: 1s; }
 @keyframes val {
-  from { transform: scale(0.3); opacity: 1; }
-  to { transform: scale(1); opacity: 0; }
+  from { transform: scale(0.32); opacity: 0.95; }
+  to { transform: scale(1.15); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .valovi.aktivno span:nth-child(n+2) { animation: none; }
   .valovi.aktivno span:nth-child(2) { transform: scale(0.65); }
 }
 
-/* ---------- prijava ---------- */
-.prijava { padding-top: 12vh; }
-.prijava .valovi { margin-bottom: 1.5rem; }
-.prijava form { display: grid; gap: 0.5rem; max-width: 18rem; margin: 1.5rem 0; }
+/* ---------- Prijava (Centrirana luksuzna kartica na laptopu) ---------- */
+.prijava {
+  margin: 6vh auto 0;
+  max-width: 28rem;
+  padding: 2.5rem;
+  background: var(--povrsina);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--crta);
+  border-radius: 1.75rem;
+  box-shadow: var(--sjena-hover);
+  text-align: center;
+}
+.prijava .valovi { margin: 0 auto 1.5rem; }
+.prijava form { display: grid; gap: 0.85rem; margin: 1.75rem 0; }
 .prijava input {
-  font-size: 1.5rem; letter-spacing: 0.4em; padding: 0.5rem 0.75rem;
-  border: 2px solid var(--crta); border-radius: 0.5rem; background: var(--povrsina);
+  font-size: 1.75rem; letter-spacing: 0.45em; text-align: center; font-weight: 800;
+  padding: 0.85rem 1rem;
+  border: 2px solid var(--crta); border-radius: 1rem;
+  background: var(--povrsina-puna);
+  transition: all 0.2s ease;
+}
+.prijava input:focus {
+  border-color: var(--akcija);
+  box-shadow: 0 0 0 5px rgba(138, 100, 214, 0.18);
+  outline: none;
 }
 .demo-napomena {
-  font-size: 0.9rem; color: var(--tiho); max-width: 34rem;
-  border-left: 3px solid var(--crta); padding-left: 0.75rem;
+  font-size: 0.875rem; color: var(--tiho); text-align: left;
+  background: rgba(138, 100, 214, 0.06);
+  border: 1px solid var(--crta);
+  border-left: 4px solid var(--akcija);
+  padding: 0.9rem 1.1rem; border-radius: 0.85rem;
 }
 .greska { color: var(--kriticno); font-weight: 700; min-height: 1.5em; margin: 0; }
 
-/* ---------- odjel ---------- */
+/* ---------- Hero NFC Kartica & Napredak (2 stupca na laptopu!) ---------- */
 .sken-gumb {
-  display: flex; align-items: center; gap: 1.25rem; width: 100%;
-  margin: 1.5rem 0 1.25rem; padding: 1.25rem;
-  border: 2px solid var(--tinta); border-radius: 1rem;
-  background: var(--povrsina); text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 1.5rem; width: 100%;
+  margin: 0 0 1.5rem; padding: 1.75rem 2rem;
+  border: 1.5px solid rgba(138, 100, 214, 0.35);
+  border-radius: 1.5rem;
+  background: var(--povrsina);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--sjena-kartice);
+  text-align: left; cursor: pointer;
+  position: relative; overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.sken-gumb > span { display: grid; gap: 0.15rem; }
-.sken-naslov { font-size: 1.375rem; }
+/* Suptilni sjajni rub na vrhu NFC kartice */
+.sken-gumb::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--akcija-gradijent); opacity: 0.85;
+}
+.sken-gumb:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--sjena-hover);
+  border-color: var(--akcija);
+  background: var(--povrsina-puna);
+}
+.sken-gumb > span { display: grid; gap: 0.25rem; }
+.sken-naslov { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
 
-.napredak h2 { margin-bottom: 0.4rem; }
-.traka { height: 0.5rem; border-radius: 99px; background: var(--crta); overflow: hidden; }
-.traka span { display: block; height: 100%; background: var(--ok); transition: width 0.3s; }
-.napredak .mali-tekst { margin-top: 0.4rem; }
+.napredak {
+  background: var(--povrsina);
+  backdrop-filter: blur(16px);
+  padding: 1.4rem 1.75rem;
+  border-radius: 1.35rem;
+  border: 1px solid var(--crta);
+  box-shadow: var(--sjena-kartice);
+  margin-bottom: 1.75rem;
+}
+.napredak h2 { margin-bottom: 0.75rem; font-size: 1.1rem; }
+.traka {
+  height: 0.7rem; border-radius: 99px;
+  background: rgba(138, 100, 214, 0.14);
+  overflow: hidden;
+}
+.traka span {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, #6B46C1, #B83280, #0F766E);
+  border-radius: 99px;
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.napredak .mali-tekst { margin-top: 0.6rem; margin-bottom: 0; font-weight: 500; }
+
+
+
+/* ==========================================================================
+   Ostatak sučelja (popis pacijenata, kartica, glas, slojevi) — vraćeno iz
+   zadnjeg commita; koristi iste varijable kao i novi dizajn
+   ========================================================================== */
 
 .pacijenti { list-style: none; margin: 1rem 0 0; padding: 0; border-top: 1px solid var(--crta); }
 .pacijenti li { border-bottom: 1px solid var(--crta); }
@@ -166,7 +321,7 @@ button, input, textarea { font: inherit; color: inherit; }
   display: grid; grid-template-columns: 0.375rem 3.25rem 1fr auto; gap: 0.85rem; align-items: center;
   width: 100%; padding: 0.85rem 0.25rem; background: none; border: 0; text-align: left; cursor: pointer;
 }
-.red:hover { background: var(--povrsina); }
+.red:hover { background: var(--povrsina-puna); }
 .rizik { align-self: stretch; border-radius: 2px; background: var(--ok); }
 .razina-1 .rizik { background: var(--upoz); }
 .razina-2 .rizik { background: var(--kriticno); }
@@ -210,7 +365,7 @@ button, input, textarea { font: inherit; color: inherit; }
 }
 .pregled-blok {
   min-width: 0; padding: 0.75rem 0.85rem;
-  background: var(--povrsina); border: 1px solid var(--crta); border-radius: 0.5rem;
+  background: var(--povrsina-puna); border: 1px solid var(--crta); border-radius: 0.5rem;
 }
 .pregled-blok h3 {
   font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em;
@@ -248,7 +403,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .glas-primjeri summary { cursor: pointer; font-size: 0.9rem; padding: 0.55rem 0; }
 .glas-primjeri .poveznica { display: block; text-align: left; margin: 0.25rem 0; }
 
-.nacrt { margin-top: 0.5rem; padding: 0.85rem; border-radius: 0.5rem; background: var(--povrsina); border: 1px solid var(--crta); }
+.nacrt { margin-top: 0.5rem; padding: 0.85rem; border-radius: 0.5rem; background: var(--povrsina-puna); border: 1px solid var(--crta); }
 .nacrt h3, .potvrdeno-glas h3 { font-size: 1rem; margin: 0 0 0.35rem; }
 .nacrt-napomene { margin: 0.25rem 0 0.75rem; padding-left: 1.2rem; color: var(--upoz); font-size: 0.92rem; }
 .nacrt-polja { list-style: none; margin: 0.5rem 0; padding: 0; display: grid; gap: 0.75rem; }
@@ -256,14 +411,14 @@ button, input, textarea { font: inherit; color: inherit; }
   padding: 0.75rem; border: 2px dashed var(--upoz); border-radius: 0.5rem; background: var(--upoz-poz);
 }
 .nacrt-zaglavlje { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.oznaka.nepotvrdeno { background: var(--upoz); color: var(--povrsina); text-transform: uppercase; letter-spacing: 0.03em; }
+.oznaka.nepotvrdeno { background: var(--upoz); color: var(--povrsina-puna); text-transform: uppercase; letter-spacing: 0.03em; }
 .nacrt-polje p { margin: 0.2rem 0 0.4rem; }
 .nacrt-mreza { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.5rem; }
 .nacrt-mreza .siroko { grid-column: 1 / -1; }
 .nacrt-polje label { display: block; font-size: 0.85rem; font-weight: 700; margin-bottom: 0.15rem; }
 .nacrt-polje input, .nacrt-polje select, .nacrt-polje textarea {
   width: 100%; min-height: 2.5rem; padding: 0.35rem 0.5rem;
-  border: 2px solid var(--crta); border-radius: 0.4rem; background: var(--povrsina);
+  border: 2px solid var(--crta); border-radius: 0.4rem; background: var(--povrsina-puna);
 }
 .nacrt-gumbi { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .nacrt-diktat summary { cursor: pointer; font-size: 0.9rem; padding: 0.35rem 0; }
@@ -292,7 +447,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .izvor {
   font-size: 0.8rem; padding: 0.05rem 0.5rem; margin: 0.1rem 0;
   border: 1px solid var(--crta); border-radius: 99px;
-  background: var(--povrsina); color: var(--tiho); cursor: pointer; white-space: nowrap;
+  background: var(--povrsina-puna); color: var(--tiho); cursor: pointer; white-space: nowrap;
 }
 .izvori { margin-top: 0.4rem; }
 .ai-oznaka { font-size: 0.9rem; font-weight: 700; color: var(--upoz); }
@@ -322,7 +477,7 @@ button, input, textarea { font: inherit; color: inherit; }
 #forma-biljeska label { font-weight: 700; }
 textarea, #forma-rucno input {
   width: 100%; padding: 0.6rem; border: 2px solid var(--crta); border-radius: 0.5rem;
-  background: var(--povrsina);
+  background: var(--povrsina-puna);
 }
 
 .preuzimanje { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px dashed var(--crta); }
@@ -337,7 +492,7 @@ textarea, #forma-rucno input {
   padding: 0.6rem 0.4rem; border-bottom: 1px solid var(--crta); font-size: 0.95rem;
   border-radius: 0.25rem;
 }
-.zapisi li.istaknuto { outline: 3px solid var(--fokus); background: var(--povrsina); }
+.zapisi li.istaknuto { outline: 3px solid var(--fokus); background: var(--povrsina-puna); }
 .zapis-id { color: var(--tiho); font-variant-numeric: tabular-nums; }
 
 /* pristupi zapisu (iz zapisnika) */
@@ -377,7 +532,7 @@ td:first-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
 }
 .sloj-sadrzaj {
   width: 100%; max-width: 44rem; text-align: center;
-  background: var(--povrsina); border-radius: 1rem 1rem 0 0;
+  background: var(--povrsina-puna); border-radius: 1rem 1rem 0 0;
   padding: 2rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0));
 }
 .sloj-sadrzaj .gumb.sporedni { margin-top: 0.75rem; }
@@ -412,3 +567,23 @@ td:first-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
   background: var(--kriticno-poz); color: var(--kriticno); font-size: 0.95rem;
 }
 .alergije-traka.nema { background: transparent; color: var(--tiho); padding-left: 0; }
+
+/* identitet: ništa ne ispisujemo kad je kartica otvorena ručno */
+.identitet.rucno { display: none; }
+
+/* ---------- glasovni unos: uvijek odmah ispod zaglavlja kartice ---------- */
+main:has(> .glas) { display: flex; flex-direction: column; }
+main:has(> .glas) > .glas { order: -1; }
+
+.glas {
+  margin: 0.75rem 0 1rem; padding: 1.1rem 1.25rem;
+  background: var(--povrsina-puna);
+  border: 1.5px solid var(--crta); border-radius: 1rem;
+}
+
+@media (max-width: 40rem) {
+  #app { padding: 1rem 1rem 4rem; }
+  .glas { padding: 1rem; }
+  .glas-kontrole { flex-direction: column; align-items: stretch; }
+  .glas-gumb { width: 100%; min-height: 3.5rem; font-size: 1.1rem; }
+}
